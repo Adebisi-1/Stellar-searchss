@@ -93,6 +93,10 @@ Browser (Freighter) → GET /search?q=...
 5. OpenZeppelin facilitator at `channels.openzeppelin.com/x402/testnet` verifies the signature and settles 0.001 USDC on Stellar testnet
 6. Server receives confirmation and returns search results
 
+## Search history and privacy
+
+Successful paid searches keep a receipt in the current browser’s localStorage with the transaction hash, amount, timestamp, and network. Query text is **not stored by default**. To opt in, enable **Save search query text in this browser** in the Dashboard. Turning it off removes query text from existing receipts, while keeping payment metadata. Use **Clear receipts** in the Dashboard to delete all locally stored receipts. The app keeps at most the 50 most recent receipts; clearing browser site data also removes them.
+
 ---
 
 ## Project structure
