@@ -5,6 +5,7 @@
  * Exposes tools for Claude Code (and any MCP client):
  *   - web_search:       pays 0.001 USDC via x402, returns Serper.dev results
  *   - ai_summarize:     uses Groq to summarise search results
+ *   - summarize_url:    fetches a public URL and summarises it with Groq (free)
  *   - check_balance:    reads live USDC balance from Stellar Horizon
  *
  * Setup: see README.md → "Claude Code / MCP Integration"
@@ -92,6 +93,23 @@ Use for breaking stories, current events, and time-sensitive reporting.`,
           instruction: { type: 'string', description: 'What to do with the text (e.g. "summarise", "extract key points")', default: 'summarise' },
         },
         required: ['text'],
+      },
+    },
+    {
+      name: 'summarize_url',
+      description: `Fetch a public web page and summarise it with Groq (Llama 3). Free — no payment required.
+Use it to read a link returned by web_search or news_search. Only public http(s) URLs on ports 80/443 are allowed;
+private, loopback and link-local addresses are refused. Large pages are truncated before summarising.`,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: 'Public http(s) URL to read' },
+          instruction: {
+            type: 'string',
+            description: 'Optional: what to do with the page (e.g. "extract the pricing table"). Defaults to a summary with key points.',
+          },
+        },
+        required: ['url'],
       },
     },
     {
@@ -258,6 +276,44 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return { content: [{ type: 'text', text: content }] }
     } catch (err: any) {
       return { content: [{ type: 'text', text: `Groq error: ${err.message}` }], isError: true }
+    }
+  }
+
+  // ── summarize_url ─────────────────────────────────────────────────────
+  // Fetching happens on the StellarSearch server, which enforces the SSRF
+  // guard (see server/urlSummary.ts), so there is one place that talks to
+  // arbitrary URLs.
+  if (name === 'summarize_url') {
+    const { url, instruction } = args as { url: string; instruction?: string }
+
+    try {
+      const res = await fetch(`${SERVER_URL}/summarize-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, instruction }),
+      })
+      const data = (await res.json().catch(() => ({}))) as {
+        url?: string
+        title?: string | null
+        summary?: string
+        truncated?: boolean
+        error?: string
+      }
+      if (!res.ok) throw new Error(data.error || `Server returned ${res.status}`)
+
+      return {
+        content: [{
+          type: 'text',
+          text: [
+            `🔗 ${data.title ? `${data.title}\n   ` : ''}${data.url}`,
+            data.truncated ? '✂️ Page was long; summarised the first part only.' : '',
+            '',
+            data.summary,
+          ].filter((line, i) => line !== '' || i === 2).join('\n'),
+        }],
+      }
+    } catch (err: any) {
+      return { content: [{ type: 'text', text: `summarize_url failed: ${err.message}` }], isError: true }
     }
   }
 
