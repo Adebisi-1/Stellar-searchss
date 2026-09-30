@@ -65,6 +65,8 @@ export function AnimatedBackground() {
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (prefersReducedMotion) return
 
     const matrixChars = '01ABCDEF⬡◈▲⬢x402USDC'.split('')
 
@@ -74,6 +76,9 @@ export function AnimatedBackground() {
     }
     resize()
     window.addEventListener('resize', resize)
+    let visible = !document.hidden
+    const onVisibility = () => { visible = !document.hidden }
+    document.addEventListener('visibilitychange', onVisibility)
 
     const columns = Array.from({ length: Math.floor(window.innerWidth / 28) }, (_, i) => ({
       x: i * 28,
@@ -98,6 +103,7 @@ export function AnimatedBackground() {
     let frame = 0
 
     const draw = () => {
+      if (!visible) { animId = requestAnimationFrame(draw); return }
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       frame++
 
@@ -190,6 +196,7 @@ export function AnimatedBackground() {
     return () => {
       animationLoop.cleanup()
       window.removeEventListener('resize', resize)
+      document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [])
 
