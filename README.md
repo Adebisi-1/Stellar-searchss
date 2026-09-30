@@ -62,15 +62,7 @@ npm install
 
 | Key | Where to get it |
 |---|---|
-<<<<<<< HEAD
-| `STELLAR_RECEIVING_ADDRESS` | [Stellar Lab](https://laboratory.stellar.org/#account-creator?network=test) — generate + fund testnet keypair |
-||||||| 7ec9e8a
-| `STELLAR_RECEIVING_ADDRESS` | [Stellar Lab](https://laboratory.stellar.org/#account-creator?network=test) — generate + fund testnet keypair |
-| `OPENZEPPELIN_API_KEY` | [channels.openzeppelin.com/testnet/gen](https://channels.openzeppelin.com/testnet/gen) |
-=======
 | `STELLAR_RECEIVING_ADDRESS` | [Stellar Lab](https://lab.stellar.org/account/fund) — generate + fund testnet keypair |
-| `OPENZEPPELIN_API_KEY` | [channels.openzeppelin.com/testnet/gen](https://channels.openzeppelin.com/testnet/gen) |
->>>>>>> origin/main
 | `SERPER_API_KEY` | [serper.dev](https://serper.dev/) — free tier: 2.5k queries/month |
 | `GROQ_API_KEY` | [console.groq.com/keys](https://console.groq.com/keys) — free |
 
@@ -251,16 +243,8 @@ Then tell Claude Code: `"Search for the latest Stellar x402 examples"` — it ca
 | Requirement | ✓ |
 |---|---|
 | Open-source repo + README | ✅ |
-<<<<<<< HEAD
-| 2–3 min video demo | Record showing: connect Freighter → search → see 402 → payment settles → results |
-| Real Stellar testnet transactions | ✅ Every search settles 0.001 USDC via the x402 facilitator (`https://www.x402.org/facilitator`) |
-||||||| 7ec9e8a
-| 2–3 min video demo | Record showing: connect Freighter → search → see 402 → payment settles → results |
-| Real Stellar testnet transactions | ✅ Every search settles 0.001 USDC via OpenZeppelin facilitator |
-=======
 | 2–3 min video demo | ✅ Animated flow walkthrough embedded above — see [Demo](#demo). Use the [recording guide](docs/DEMO_RECORDING.md) to capture a full video of a live settlement |
-| Real Stellar testnet transactions | ✅ Every search settles 0.001 USDC via OpenZeppelin facilitator |
->>>>>>> origin/main
+| Real Stellar testnet transactions | ✅ Every search settles 0.001 USDC via the x402 facilitator (`https://www.x402.org/facilitator`) |
 | x402 protocol | ✅ `@x402/express` + `@x402/stellar` |
 | Addresses explicit demand signal | ✅ "pay-per-query web search instead of monthly subscriptions" |
 
