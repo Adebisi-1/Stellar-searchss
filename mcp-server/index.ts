@@ -19,6 +19,7 @@ import dotenv from 'dotenv'
 import { readFileSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import { pathToFileURL } from 'node:url'
 import { 
   HORIZON_URL, 
   USDC_ISSUER, 
@@ -38,6 +39,43 @@ const SERVER_URL = process.env.SEARCH_API_URL || 'http://localhost:3001'
 const GROQ_API_KEY = process.env.GROQ_API_KEY!
 
 const groq = new Groq({ apiKey: GROQ_API_KEY })
+
+type ErrorCategory = 'authentication/configuration' | 'network/request' | 'upstream service' | 'invalid request' | 'unexpected internal'
+
+function errorText(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return ''
+  }
+}
+
+export function getSafeToolErrorMessage(tool: string, error: unknown): string {
+  const message = errorText(error).toLowerCase()
+  let category: ErrorCategory = 'unexpected internal'
+
+  if (/api.?key|authentication|unauthori[sz]ed|forbidden|\b401\b|\b403\b/.test(message)) {
+    category = 'authentication/configuration'
+  } else if (/fetch failed|network|timeout|timed out|econn|enotfound|socket/.test(message)) {
+    category = 'network/request'
+  } else if (/\bhttp\s*\d|upstream|horizon returned|server health check/.test(message)) {
+    category = 'upstream service'
+  } else if (/invalid|not found|missing|bad request|\b400\b|\b404\b/.test(message)) {
+    category = 'invalid request'
+  }
+
+  return `${tool} failed: ${category} error. Please check the request and try again.`
+}
+
+export function reportToolError(tool: string, error: unknown) {
+  console.error(`[MCP ${tool}]`, error)
+  return {
+    content: [{ type: 'text' as const, text: getSafeToolErrorMessage(tool, error) }],
+    isError: true,
+  }
+}
 
 // ─── MCP server ───────────────────────────────────────────────────────────
 const server = new Server(
@@ -182,7 +220,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }],
       }
     } catch (err: any) {
-      return { content: [{ type: 'text', text: `Search failed: ${err.message}` }], isError: true }
+      return reportToolError('Search', err)
     }
   }
 
@@ -220,7 +258,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }],
       }
     } catch (err: any) {
-      return { content: [{ type: 'text', text: `Image search failed: ${err.message}` }], isError: true }
+      return reportToolError('Image search', err)
     }
   }
 
@@ -263,7 +301,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }],
       }
     } catch (err: any) {
-      return { content: [{ type: 'text', text: `News search failed: ${err.message}` }], isError: true }
+      return reportToolError('News search', err)
     }
   }
 
@@ -285,7 +323,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const content = completion.choices[0]?.message?.content || 'No response.'
       return { content: [{ type: 'text', text: content }] }
     } catch (err: any) {
-      return { content: [{ type: 'text', text: `Groq error: ${err.message}` }], isError: true }
+      return reportToolError('AI summary', err)
     }
   }
 
@@ -360,7 +398,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }],
       }
     } catch (err: any) {
-      return { content: [{ type: 'text', text: `Balance check failed: ${err.message}` }], isError: true }
+      return reportToolError('Balance check', err)
     }
   }
 
@@ -390,13 +428,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }],
       }
     } catch (err: any) {
-      return { content: [{ type: 'text', text: `Failed to fetch server stats: ${err.message}` }], isError: true }
+      return reportToolError('Server stats', err)
     }
   }
 
   return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true }
 })
 
-const transport = new StdioServerTransport()
-await server.connect(transport)
-console.error('StellarSearch MCP server started')
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const transport = new StdioServerTransport()
+  await server.connect(transport)
+  console.error('StellarSearch MCP server started')
+}
