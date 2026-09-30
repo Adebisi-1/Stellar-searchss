@@ -7,6 +7,20 @@
 
 ---
 
+## Demo
+
+![Animated walkthrough of the StellarSearch x402 payment flow](public/demo-flow.svg)
+
+A self-contained animated walkthrough of the real UI, state-for-state:
+**connect Freighter → search → HTTP 402 → sign the Soroban auth entry → retry with `X-PAYMENT` → the facilitator settles `0.001 USDC` on Stellar testnet → results render with the settlement linked to Stellar Expert.**
+
+It renders inline on GitHub with no local setup and is only ~20 KB. It is an
+illustration of the flow, not a screen recording — to capture a full video of a
+live settlement (with the transaction verifiable on the explorer), follow
+[`docs/DEMO_RECORDING.md`](docs/DEMO_RECORDING.md).
+
+---
+
 ## What it is
 
 StellarSearch is a pay-per-query web search API for autonomous AI agents. Every search costs **0.001 USDC**, settled on Stellar in ~5 seconds using the x402 protocol. No subscriptions, no API keys for the end user — agents pay per request and get real web search results back.
@@ -160,6 +174,10 @@ stellar-search/
 │   └── index.ts                # MCP tools: web_search, ai_summarize, check_balance
 ├── scripts/
 │   └── test-search.ts          # End-to-end test script
+├── public/
+│   └── demo-flow.svg           # Animated README walkthrough of the payment flow
+├── docs/
+│   └── DEMO_RECORDING.md       # How to record the real settlement demo
 ├── .env.example
 ├── vercel.json                 # Committed build + routing config
 ├── claude_mcp.json
@@ -195,7 +213,7 @@ Then tell Claude Code: `"Search for the latest Stellar x402 examples"` — it ca
 | Requirement | ✓ |
 |---|---|
 | Open-source repo + README | ✅ |
-| 2–3 min video demo | Record showing: connect Freighter → search → see 402 → payment settles → results |
+| 2–3 min video demo | ✅ Animated flow walkthrough embedded above — see [Demo](#demo). Use the [recording guide](docs/DEMO_RECORDING.md) to capture a full video of a live settlement |
 | Real Stellar testnet transactions | ✅ Every search settles 0.001 USDC via OpenZeppelin facilitator |
 | x402 protocol | ✅ `@x402/express` + `@x402/stellar` |
 | Addresses explicit demand signal | ✅ "pay-per-query web search instead of monthly subscriptions" |
