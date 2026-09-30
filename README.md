@@ -3,6 +3,8 @@
 > **Stellar Hackathon 2026 · Agents on Stellar**
 > Zero mock data. Real x402 payments. Real Serper.dev Search. Real Groq AI. Real Freighter wallet.
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
 ---
 
 ## What it is
@@ -197,3 +199,9 @@ Then tell Claude Code: `"Search for the latest Stellar x402 examples"` — it ca
 | Real Stellar testnet transactions | ✅ Every search settles 0.001 USDC via OpenZeppelin facilitator |
 | x402 protocol | ✅ `@x402/express` + `@x402/stellar` |
 | Addresses explicit demand signal | ✅ "pay-per-query web search instead of monthly subscriptions" |
+
+---
+
+## License
+
+Released under the [MIT License](./LICENSE). © 2026 StellarSearch contributors.
