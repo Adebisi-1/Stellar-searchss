@@ -40,7 +40,7 @@ npm install
 
 | Key | Where to get it |
 |---|---|
-| `STELLAR_RECEIVING_ADDRESS` | [Stellar Lab](https://laboratory.stellar.org/#account-creator?network=test) — generate + fund testnet keypair |
+| `STELLAR_RECEIVING_ADDRESS` | [Stellar Lab](https://lab.stellar.org/account/fund) — generate + fund testnet keypair |
 | `OPENZEPPELIN_API_KEY` | [channels.openzeppelin.com/testnet/gen](https://channels.openzeppelin.com/testnet/gen) |
 | `SERPER_API_KEY` | [serper.dev](https://serper.dev/) — free tier: 2.5k queries/month |
 | `GROQ_API_KEY` | [console.groq.com/keys](https://console.groq.com/keys) — free |
@@ -54,7 +54,7 @@ cp .env.example .env
 
 ### 4. Install Freighter
 
-Install the [Freighter browser extension](https://freighter.app), create a testnet wallet, and fund it with USDC at [Stellar Lab](https://laboratory.stellar.org).
+Install the [Freighter browser extension](https://freighter.app), create a testnet wallet, and fund it with USDC — see [Get testnet USDC](#get-testnet-usdc) below.
 
 ### 5. Run
 
@@ -72,6 +72,43 @@ npm run dev
 ```bash
 npm run test:search "Stellar blockchain"
 ```
+
+---
+
+## Get testnet USDC
+
+Searches are paid in USDC on Stellar testnet. A fresh wallet holds **zero USDC**, and unlike XLM there is no automatic faucet — you must opt in by adding a **trustline** before any USDC can land in your account. Complete these four steps in order; the faucet only works after step 3. (The same guide is available in-app on the **How it works** page at `/docs#get-testnet-usdc`.)
+
+### Step 1 — Create a testnet account
+
+Generate a keypair with the [Freighter browser extension](https://freighter.app), or use [Stellar Lab](https://lab.stellar.org/account/fund). Keep the secret key (`S…`) private — it never needs to leave your device.
+
+### Step 2 — Fund the account with testnet XLM
+
+A new account must hold the minimum balance before it can hold assets. Friendbot tops up your account with free testnet XLM in one click:
+
+- **Browser:** [Stellar Lab → Fund account](https://lab.stellar.org/account/fund)
+- **CLI:** `curl "https://friendbot.stellar.org?addr=G…"`
+
+### Step 3 — Add the USDC trustline
+
+Trust the USDC issuer so your account can hold USDC. The testnet USDC issuer used by this app (and by the faucet) is:
+
+```
+USDC-GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5
+```
+
+You can verify the issuer on [StellarExpert](https://stellar.expert/explorer/testnet/asset/USDC-GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5).
+
+- **Browser:** [Stellar Lab → Fund account](https://lab.stellar.org/account/fund) has a trustline button on the same page.
+- **SDK:** follow Circle's [USDC trustline quickstart](https://developers.circle.com/stablecoins/quickstart-setup-usdc-trustline-stellar) to submit a `changeTrust` operation with `@stellar/stellar-sdk`.
+- **Concepts:** see [Stellar Docs — trustlines](https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#trustlines).
+
+> If you add a trustline to the wrong issuer, faucet USDC will never arrive. Double-check the address above.
+
+### Step 4 — Claim testnet USDC from the faucet
+
+Once the trustline exists, Circle's public [testnet faucet](https://faucet.circle.com) sends free testnet USDC straight to your address (currently 20 USDC per address every 2 hours). That balance is what pays for searches — **0.001 USDC per query**.
 
 ---
 
