@@ -63,6 +63,7 @@ Use for visual references, photos, diagrams, or anything where you need image re
         properties: {
           query: { type: 'string', description: 'Image search query' },
           count: { type: 'number', description: 'Results count (1–10, default 5)', default: 5 },
+          freshness: { type: 'string', enum: ['pd', 'pw', 'pm'], description: 'Age: pd=day, pw=week, pm=month' },
         },
         required: ['query'],
       },
@@ -161,11 +162,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   // ── image_search ──────────────────────────────────────────────────────
   if (name === 'image_search') {
-    const { query, count = 5 } = args as { query: string; count?: number }
+    const { query, count = 5, freshness } = args as { query: string; count?: number; freshness?: string }
 
     try {
       const safeCount = Math.min(Math.max(parseInt(String(count)) || 5, 1), 10)
       const params = new URLSearchParams({ q: query, count: String(safeCount) })
+      if (freshness) params.set('freshness', freshness)
 
       const res = await fetch(`${SERVER_URL}/images?${params}`)
 

@@ -249,7 +249,7 @@ app.get('/search', async (req: Request, res: Response) => {
 
 // ─── GET /images ──────────────────────────────────────────────────────────
 app.get('/images', async (req: Request, res: Response) => {
-  const { q, count = '10' } = req.query as Record<string, string>
+  const { q, count = '10', freshness } = req.query as Record<string, string>
 
   const v = validateQuery(q)
   if (!v.ok) return res.status(400).json({ error: v.error })
@@ -258,16 +258,30 @@ app.get('/images', async (req: Request, res: Response) => {
   const t0 = Date.now()
 
   try {
+    const requestBody: any = {
+      q: cleanQ,
+      num: Math.min(parseInt(count) || 10, 10),
+    }
+
+    // Add freshness filter if provided (Serper supports date filters)
+    if (freshness) {
+      const dateFilters: Record<string, string> = {
+        'pd': 'qdr:d',  // past day
+        'pw': 'qdr:w',  // past week
+        'pm': 'qdr:m',  // past month
+      }
+      if (dateFilters[freshness]) {
+        requestBody.tbs = dateFilters[freshness]
+      }
+    }
+
     const serperRes = await fetch('https://google.serper.dev/images', {
       method: 'POST',
       headers: {
         'X-API-KEY': SERPER_API_KEY,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        q: cleanQ,
-        num: Math.min(parseInt(count) || 10, 10),
-      }),
+      body: JSON.stringify(requestBody),
     })
 
     if (!serperRes.ok) {
