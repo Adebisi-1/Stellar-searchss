@@ -58,6 +58,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen relative text-white">
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
       {/* Canvas particle / matrix background */}
       <AnimatedBackground />
 
@@ -79,7 +82,7 @@ export default function App() {
         <LiveTicker walletConnected={wallet.connected} />
 
         {/* Page content */}
-        <main className="flex-1">
+        <main id="main-content" className="flex-1" tabIndex={-1}>
           <AnimatePresence mode="wait">
             <motion.div
               key={page}
