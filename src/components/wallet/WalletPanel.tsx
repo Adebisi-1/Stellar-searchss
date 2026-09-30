@@ -233,7 +233,7 @@ export function WalletPanel({
                 </a>
               ) : (
                 <a
-                  href="https://laboratory.stellar.org/#account-creator?network=test"
+                  href="https://lab.stellar.org/account/fund"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 py-2 rounded-lg border border-neon-cyan/20 text-center font-display text-[10px] text-neon-cyan/70 hover:bg-neon-cyan/5 transition-colors uppercase tracking-widest"

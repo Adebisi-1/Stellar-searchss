@@ -78,7 +78,7 @@ Before you begin, make sure you have:
 |---|---|---|
 | `SERPER_API_KEY` | [serper.dev](https://serper.dev) | Free — 2,500 queries/month |
 | `GROQ_API_KEY` | [console.groq.com/keys](https://console.groq.com/keys) | Free |
-| `STELLAR_RECEIVING_ADDRESS` | [Stellar Lab](https://laboratory.stellar.org/#account-creator?network=test) | Free testnet keypair |
+| `STELLAR_RECEIVING_ADDRESS` | [Stellar Lab](https://lab.stellar.org/account/fund) | Free testnet keypair |
 
 > **Note:** You only need `SERPER_API_KEY` and `GROQ_API_KEY` for most frontend work. The `STELLAR_RECEIVING_ADDRESS` is only required if you are working on the payment flow.
 
@@ -131,8 +131,8 @@ VITE_SERVER_URL=http://localhost:3001
 1. Install [Freighter](https://freighter.app) browser extension.
 2. Create a new wallet (or import one).
 3. Switch to **Testnet**: Settings → Network → Testnet.
-4. Get a funded testnet account at [Stellar Lab](https://laboratory.stellar.org/#account-creator?network=test).
-5. Add the USDC trustline and claim testnet USDC from the faucet.
+4. Get a funded testnet account at [Stellar Lab](https://lab.stellar.org/account/fund).
+5. Add the USDC trustline and claim testnet USDC from the [Circle faucet](https://faucet.circle.com) — the full walkthrough is the [Get testnet USDC](README.md#get-testnet-usdc) section of the README.
 
 > If you are **not** working on the wallet or payment flow, you can skip step 4 entirely — the frontend works without a wallet for most UI changes.
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Coins, ExternalLink, X } from 'lucide-react'
 import { IS_MAINNET } from '../../lib/stellar'
+import { FUNDING_URLS } from '../../lib/funding'
 
 interface Props {
   connected: boolean
@@ -9,9 +10,9 @@ interface Props {
   usdcBalance: string
 }
 
-const FAUCET_URL = 'https://laboratory.stellar.org/#account-creator?network=test'
-const TRUSTLINE_GUIDE_URL =
-  'https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#trustlines'
+// In-app guide lives on the docs page; the deep link is a fallback for
+// users coming from search engines or embedded contexts.
+const FUNDING_GUIDE_URL = '/docs#get-testnet-usdc'
 
 const dismissKey = (publicKey: string) => `zero-balance-banner-dismissed:${publicKey}`
 
@@ -51,24 +52,24 @@ export function ZeroBalanceBanner({ connected, publicKey, usdcBalance }: Props) 
             <p className="text-sm text-neon-amber/90 leading-relaxed">
               You need testnet USDC to search.{' '}
               <a
-                href={FAUCET_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium underline underline-offset-2 hover:text-neon-amber transition-colors inline-flex items-center gap-1"
+                href={FUNDING_GUIDE_URL}
+                className="font-medium underline underline-offset-2 hover:text-neon-amber transition-colors"
               >
-                Get free USDC <ExternalLink className="w-3 h-3" />
-              </a>
+                Follow the step-by-step funding guide
+              </a>{' '}
+              (create account → fund XLM → add USDC trustline → claim USDC)
             </p>
             <p className="text-xs text-white/45">
-              New to Stellar?{' '}
+              Already set up?{' '}
               <a
-                href={TRUSTLINE_GUIDE_URL}
+                href={FUNDING_URLS.usdcFaucet}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-neon-cyan/80 hover:text-neon-cyan transition-colors inline-flex items-center gap-1"
               >
-                USDC trustline setup guide <ExternalLink className="w-3 h-3" />
-              </a>
+                Claim USDC from the faucet <ExternalLink className="w-3 h-3" />
+              </a>{' '}
+              — requires the USDC trustline first.
             </p>
           </div>
           <button
