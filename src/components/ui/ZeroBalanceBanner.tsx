@@ -8,15 +8,14 @@ interface Props {
   connected: boolean
   publicKey: string | null
   usdcBalance: string
+  // Navigates to the funding guide section on the docs page via SPA routing
+  // (a plain hash anchor would reload the app back to the search page).
+  onOpenGuide: () => void
 }
-
-// In-app guide lives on the docs page; the deep link is a fallback for
-// users coming from search engines or embedded contexts.
-const FUNDING_GUIDE_URL = '/docs#get-testnet-usdc'
 
 const dismissKey = (publicKey: string) => `zero-balance-banner-dismissed:${publicKey}`
 
-export function ZeroBalanceBanner({ connected, publicKey, usdcBalance }: Props) {
+export function ZeroBalanceBanner({ connected, publicKey, usdcBalance, onOpenGuide }: Props) {
   const [dismissed, setDismissed] = useState(false)
 
   // Reset / restore dismissal state when the connected account changes.
@@ -51,12 +50,12 @@ export function ZeroBalanceBanner({ connected, publicKey, usdcBalance }: Props) 
           <div className="flex-1 min-w-0 space-y-2">
             <p className="text-sm text-neon-amber/90 leading-relaxed">
               You need testnet USDC to search.{' '}
-              <a
-                href={FUNDING_GUIDE_URL}
+              <button
+                onClick={onOpenGuide}
                 className="font-medium underline underline-offset-2 hover:text-neon-amber transition-colors"
               >
                 Follow the step-by-step funding guide
-              </a>{' '}
+              </button>{' '}
               (create account → fund XLM → add USDC trustline → claim USDC)
             </p>
             <p className="text-xs text-white/45">

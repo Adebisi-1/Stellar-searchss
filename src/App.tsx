@@ -1,4 +1,4 @@
-import { useState, useMemo }                   from 'react'
+import { useState, useEffect, useMemo }         from 'react'
 import { motion, AnimatePresence }             from 'framer-motion'
 import { AnimatedBackground, Navbar, LiveTicker, Footer } from './components/layout'
 import { GroqAssistant }                       from './components/ai'
@@ -8,8 +8,35 @@ import { Toaster }                             from 'sonner'
 
 type Page = 'search' | 'docs' | 'dashboard'
 
+// The app is a SPA without a router: keep the current page in the URL hash so
+// deep links like #docs work on load and browser back/forward keeps working
+// (issue #94 links users here from the zero-balance banner).
+const getPageFromHash = (): Page => {
+  const hash = window.location.hash.replace('#', '')
+  return hash === 'docs' || hash === 'dashboard' ? (hash as Page) : 'search'
+}
+
 export default function App() {
-  const [page, setPage] = useState<Page>('search')
+  const [page, setPage] = useState<Page>(getPageFromHash)
+
+  const navigate = (p: Page, anchor?: string) => {
+    setPage(p)
+    window.history.pushState(null, '', p === 'search' ? window.location.pathname : `#${p}`)
+    if (anchor) {
+      // Wait for the new page to mount, then scroll to the section anchor.
+      requestAnimationFrame(() => {
+        document.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth' })
+      })
+    } else {
+      window.scrollTo({ top: 0 })
+    }
+  }
+
+  useEffect(() => {
+    const onPopState = () => setPage(getPageFromHash())
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
 
   const {
     wallet, transactions, txLoading,
@@ -39,7 +66,7 @@ export default function App() {
         {/* Top navigation bar */}
         <Navbar
           page={page}
-          onNavigate={setPage}
+          onNavigate={navigate}
           wallet={wallet}
           transactions={transactions}
           txLoading={txLoading}
@@ -68,6 +95,7 @@ export default function App() {
                   session={session}
                   search={search}
                   reset={reset}
+                  onNavigateFundingGuide={() => navigate('docs', 'get-testnet-usdc')}
                 />
               )}
               {page === 'docs' && <DocsPage />}
