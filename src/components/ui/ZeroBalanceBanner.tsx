@@ -46,7 +46,7 @@ export function ZeroBalanceBanner({ connected, publicKey, usdcBalance }: Props) 
           style={{ boxShadow: '0 0 20px rgba(255,193,7,0.06)' }}
           role="status"
         >
-          <Coins className="w-4 h-4 mt-0.5 text-neon-amber flex-shrink-0" />
+          <Coins className="w-4 h-4 mt-0.5 text-neon-amber flex-shrink-0" aria-hidden="true" />
           <div className="flex-1 min-w-0 space-y-2">
             <p className="text-sm text-neon-amber/90 leading-relaxed">
               You need testnet USDC to search.{' '}
@@ -56,7 +56,7 @@ export function ZeroBalanceBanner({ connected, publicKey, usdcBalance }: Props) 
                 rel="noopener noreferrer"
                 className="font-medium underline underline-offset-2 hover:text-neon-amber transition-colors inline-flex items-center gap-1"
               >
-                Get free USDC <ExternalLink className="w-3 h-3" />
+                Get free USDC <ExternalLink className="w-3 h-3" aria-hidden="true" />
               </a>
             </p>
             <p className="text-xs text-white/45">
@@ -67,16 +67,17 @@ export function ZeroBalanceBanner({ connected, publicKey, usdcBalance }: Props) 
                 rel="noopener noreferrer"
                 className="text-neon-cyan/80 hover:text-neon-cyan transition-colors inline-flex items-center gap-1"
               >
-                USDC trustline setup guide <ExternalLink className="w-3 h-3" />
+                USDC trustline setup guide <ExternalLink className="w-3 h-3" aria-hidden="true" />
               </a>
             </p>
           </div>
           <button
             onClick={onDismiss}
             aria-label="Dismiss zero-balance notice"
+            title="Dismiss"
             className="absolute top-3 right-3 p-1 rounded text-white/30 hover:text-white/70 transition-colors"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
         </motion.div>
       )}

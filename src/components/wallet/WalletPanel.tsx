@@ -4,6 +4,7 @@ import {
   Wallet, ChevronDown, ExternalLink,
   Copy, CheckCheck, RefreshCw, LogOut, AlertCircle,
 } from 'lucide-react'
+import { Tooltip } from '../ui/Tooltip'
 import type { WalletState, StellarTransaction } from '../../hooks/useFreighterWallet'
 import {
   truncateAddress, truncateHash,
@@ -53,7 +54,7 @@ export function WalletPanel({
             transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
           />
         ) : (
-          <Wallet className="w-3.5 h-3.5" />
+          <Wallet className="w-3.5 h-3.5" aria-hidden="true" />
         )}
         {wallet.loading ? 'CONNECTING...' : 'CONNECT FREIGHTER'}
       </motion.button>
@@ -82,7 +83,10 @@ export function WalletPanel({
         <span className={isWrongNetwork ? 'text-red-300' : 'text-neon-amber'}>
           {isWrongNetwork ? 'WRONG NETWORK' : `${wallet.usdcBalance} USDC`}
         </span>
-        <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`}
+          aria-hidden="true"
+        />
       </motion.button>
 
       <AnimatePresence>
@@ -128,12 +132,19 @@ export function WalletPanel({
                 >
                   {wallet.publicKey}
                 </a>
-                <button onClick={copy} className="p-1 rounded text-white/30 hover:text-white/60 flex-shrink-0">
-                  {copied
-                    ? <CheckCheck className="w-3.5 h-3.5 text-neon-green" />
-                    : <Copy className="w-3.5 h-3.5" />
-                  }
-                </button>
+                <Tooltip label="Copy address">
+                  <button
+                    onClick={copy}
+                    aria-label={copied ? 'Address copied' : 'Copy wallet address'}
+                    className="p-1 rounded text-white/30 hover:text-white/60 flex-shrink-0"
+                  >
+                    {copied ? (
+                      <CheckCheck className="w-3.5 h-3.5 text-neon-green" aria-hidden="true" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" aria-hidden="true" />
+                    )}
+                  </button>
+                </Tooltip>
               </div>
 
               {/* Balances */}
@@ -154,7 +165,7 @@ export function WalletPanel({
 
               {wallet.error && (
                 <div className="mt-2 flex items-center gap-2 py-1.5 px-2 rounded bg-red-500/10 border border-red-500/20">
-                  <AlertCircle className="w-3 h-3 text-red-400 flex-shrink-0" />
+                  <AlertCircle className="w-3 h-3 text-red-400 flex-shrink-0" aria-hidden="true" />
                   <p className="text-xs text-red-300">{wallet.error}</p>
                 </div>
               )}
@@ -166,13 +177,19 @@ export function WalletPanel({
                 <span className="font-display text-white/30 tracking-widest" style={{ fontSize: '10px' }}>
                   RECENT TRANSACTIONS
                 </span>
-                <button
-                  onClick={onRefresh}
-                  disabled={txLoading}
-                  className="p-1 text-white/30 hover:text-neon-cyan transition-colors disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-3 h-3 ${txLoading ? 'animate-spin' : ''}`} />
-                </button>
+                <Tooltip label="Refresh transactions">
+                  <button
+                    onClick={onRefresh}
+                    disabled={txLoading}
+                    aria-label="Refresh transaction history"
+                    className="p-1 text-white/30 hover:text-neon-cyan transition-colors disabled:opacity-50"
+                  >
+                    <RefreshCw
+                      className={`w-3 h-3 ${txLoading ? 'animate-spin' : ''}`}
+                      aria-hidden="true"
+                    />
+                  </button>
+                </Tooltip>
               </div>
 
               {txLoading ? (
@@ -204,7 +221,8 @@ export function WalletPanel({
                             className="font-mono text-white/25 hover:text-neon-cyan transition-colors flex items-center gap-1"
                             style={{ fontSize: '10px' }}
                           >
-                            {truncateHash(tx.hash, 6)} <ExternalLink className="w-2 h-2" />
+                            {truncateHash(tx.hash, 6)}{' '}
+                            <ExternalLink className="w-2 h-2" aria-hidden="true" />
                           </a>
                           <span className="text-white/20" style={{ fontSize: '10px' }}>
                             {formatTimeAgo(tx.timestamp)}
@@ -245,7 +263,7 @@ export function WalletPanel({
                 onClick={() => { onDisconnect(); setOpen(false) }}
                 className="flex items-center gap-1.5 py-2 px-3 rounded-lg border border-white/10 font-display text-xs text-white/30 hover:text-red-400 hover:border-red-500/30 transition-all"
               >
-                <LogOut className="w-3 h-3" /> Disconnect
+                <LogOut className="w-3 h-3" aria-hidden="true" /> Disconnect
               </button>
             </div>
           </motion.div>
