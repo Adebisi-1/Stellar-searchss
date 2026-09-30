@@ -5,6 +5,7 @@ import {
   AMOUNT_STROOPS,
   AMOUNT_USDC
 } from '../src/lib/constants'
+import { incrementCounter } from '../src/lib/stats'
 
 // ─── Config ───────────────────────────────────────────────────────────────
 const RECEIVING_ADDRESS = process.env.STELLAR_RECEIVING_ADDRESS!
@@ -133,6 +134,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       relevanceScore: Math.max(0.5, 1 - i * 0.06),
       publishedAt:    r.date || undefined,
     }))
+
+    // Record successful search for stats. Best-effort: never block the response.
+    incrementCounter('searches').catch(() => {})
+    incrementCounter('results', results.length).catch(() => {})
 
     return res.json({
       query:      q.trim(),

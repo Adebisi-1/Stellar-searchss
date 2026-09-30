@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 
-export default function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   const NETWORK = process.env.STELLAR_NETWORK || 'stellar:testnet'
   const FACILITATOR_URL = process.env.FACILITATOR_URL || 'https://www.x402.org/facilitator'
   const SERPER_API_KEY = process.env.SERPER_API_KEY
@@ -16,6 +16,10 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     serperApiConfigured: !!SERPER_API_KEY,
     groqApiConfigured: !!GROQ_API_KEY,
     receivingAddressConfigured: !!RECEIVING_ADDRESS,
+    stats: await getStats(),
     timestamp: new Date().toISOString(),
   })
+}
+async function getStats(): Promise<{ searches: number; payments: number } | null> {
+  return null
 }
