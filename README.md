@@ -27,6 +27,10 @@ StellarSearch is a pay-per-query web search API for autonomous AI agents. Every 
 
 ---
 
+
+For full endpoint parameters, response shapes, and error codes, see [`docs/api.md`](docs/api.md).
+
+
 ## Real stack (no mocks)
 
 | Layer | Real package / service |
