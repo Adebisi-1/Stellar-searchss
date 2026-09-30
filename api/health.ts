@@ -3,6 +3,8 @@ import { readFileSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
+const CACHE_SECONDS = 5
+
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const { version: APP_VERSION } = JSON.parse(
   readFileSync(resolve(__dirname, '../package.json'), 'utf-8'),
@@ -15,7 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const GROQ_API_KEY = process.env.GROQ_API_KEY
   const RECEIVING_ADDRESS = process.env.STELLAR_RECEIVING_ADDRESS
 
-  res.json({
+  const body = {
     status: 'ok',
     version: APP_VERSION,
     network: NETWORK,
@@ -27,8 +29,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     receivingAddressConfigured: !!RECEIVING_ADDRESS,
     stats: await getStats(),
     timestamp: new Date().toISOString(),
-  })
+  }
+
+  const etag = `"${Buffer.from(JSON.stringify(body)).toString('base64url')}"`
+
+  res.setHeader('Cache-Control', `public, max-age=${CACHE_SECONDS}`)
+  res.setHeader('ETag', etag)
+
+  if (req.headers['if-none-match'] === etag) {
+    res.status(304).end()
+    return
+  }
+
+  res.json(body)
 }
+
 async function getStats(): Promise<{ searches: number; payments: number } | null> {
   return null
 }

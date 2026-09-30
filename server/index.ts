@@ -1,5 +1,6 @@
 
 
+import crypto from 'node:crypto'
 import express, { Request, Response } from 'express'
 import compression from 'compression'
 import cors from 'cors'
@@ -697,7 +698,7 @@ app.post('/summarize-url', async (req: Request, res: Response) => {
 })
 
 // ─── GET /health ──────────────────────────────────────────────────────────
-app.get('/health', (_req: Request, res: Response) => {
+app.get('/health', (req: Request, res: Response) => {
   const avg = stats.latencies.length
     ? Math.round(stats.latencies.reduce((a, b) => a + b, 0) / stats.latencies.length)
     : 0
@@ -705,7 +706,7 @@ app.get('/health', (_req: Request, res: Response) => {
   const up = Math.floor((Date.now() - stats.startTime) / 1000)
   const uptime = up < 60 ? `${up}s` : up < 3600 ? `${Math.floor(up / 60)}m` : `${Math.floor(up / 3600)}h`
 
-  res.json({
+  const payload = {
     status:                    'ok',
     version:                   APP_VERSION,
     network:                   NETWORK,
@@ -720,7 +721,23 @@ app.get('/health', (_req: Request, res: Response) => {
     serperApiConfigured:       !!SERPER_API_KEY,
     groqApiConfigured:         !!GROQ_API_KEY,
     receivingAddressConfigured: !!RECEIVING_ADDRESS,
-  })
+  }
+
+  // Short-lived public cache so repeated polls from LiveTicker/StatsGrid can be
+  // served from the browser (or an intermediary) instead of hitting the server
+  // on every tick. max-age must stay <= the UI polling interval to keep stats
+  // acceptably fresh.
+  const body = JSON.stringify(payload)
+  const etag = `W/"${crypto.createHash('sha1').update(body).digest('hex')}"`
+
+  res.setHeader('Cache-Control', 'public, max-age=5')
+  res.setHeader('ETag', etag)
+
+  if (req.headers['if-none-match'] === etag) {
+    return res.status(304).end()
+  }
+
+  res.type('application/json').send(body)
 })
 
 // ─── GET / ────────────────────────────────────────────────────────────────
