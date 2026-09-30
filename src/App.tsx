@@ -120,6 +120,16 @@ export default function App() {
       {/* Floating Groq AI assistant */}
       <GroqAssistant lastSearch={lastSearch} />
 
+      {/* Accessible Live Regions for persistent state so toast isn't the only surface */}
+      <div className="sr-only" aria-live="assertive" role="alert">
+        {session.status === 'error' ? `Error: ${session.error}` : ''}
+      </div>
+      <div className="sr-only" aria-live="polite" role="status">
+        {session.status === 'complete' && session.txHash 
+          ? `Payment settled: ${session.paidAmount || '0.001'} USDC` 
+          : ''}
+      </div>
+
       <Toaster position="bottom-right" theme="dark" duration={4000} richColors />
     </div>
   )
