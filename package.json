@@ -1,60 +1,14 @@
 {
-  "name": "stellar-search",
+  "name": "handsoff",
   "version": "1.0.0",
   "private": true,
-  "type": "module",
   "scripts": {
-    "setup": "bash scripts/setup.sh",
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "server": "tsx server/index.ts",
-    "mcp": "tsx mcp-server/index.ts",
-    "dev:all": "concurrently \"npm run server\" \"npm run dev\"",
-    "test:search": "tsx scripts/test-search.ts",
-    "test:suggestions": "tsx scripts/test-search.ts \"Stellar blockchain\" --count 3",
-    "deploy": "npm run build && vercel --prod"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "load-test": "k6 run scripts/load-test.js"
   },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
-    "@stellar/freighter-api": "^3.1.0",
-    "@stellar/stellar-sdk": "^14.0.0",
-    "@vercel/node": "^5.7.4",
-    "@x402/core": "^2.9.0",
-    "@x402/express": "^2.9.0",
-    "@x402/fetch": "^2.9.0",
-    "@x402/stellar": "^2.9.0",
-    "buffer": "^6.0.3",
-    "clsx": "^2.1.0",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.0",
-    "express": "^4.18.2",
-    "framer-motion": "^11.0.0",
-    "groq-sdk": "^0.9.0",
-    "lucide-react": "^0.344.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "winston": "^3.19.0"
-  },
-  "devDependencies": {
-    "@types/cors": "^2.8.17",
-    "@types/express": "^4.17.21",
-    "@types/node": "^20.11.0",
-    "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0",
-    "@vitejs/plugin-react": "^4.2.0",
-    "autoprefixer": "^10.4.17",
-    "concurrently": "^8.2.2",
-    "postcss": "^8.4.35",
-    "tailwindcss": "^3.4.1",
-    "tsx": "^4.7.0",
-    "typescript": "^5.3.3",
-    "vite": "^5.1.0"
-  },
-  "lint-staged": {
-    "*.{ts,tsx}": [
-      "bash -c 'tsc --noEmit'"
-    ]
-  }
+  "dependencies": {},
+  "devDependencies": {}
 }
-
