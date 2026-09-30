@@ -210,6 +210,7 @@ stellar-search/
 │   └── urlSummary.ts           # SSRF-guarded page fetch + HTML→text for summarize_url
 ├── mcp-server/
 │   └── index.ts                # MCP tools: web_search, ai_summarize, summarize_url, check_balance + prompts
+│                                # + the stellar-search://health resource
 ├── scripts/
 │   └── test-search.ts          # End-to-end test script
 ├── public/
@@ -274,6 +275,50 @@ The server also exposes reusable prompt templates that show up in MCP clients' p
 | `news_roundup` | `topic` (required), `timeframe` (optional, default `last 7 days`) | `web_search` | Summarizes recent news on a topic with links |
 
 Example: pick `cited_research`, enter `topic: "Stellar x402 adoption"`, and the client issues a `web_search` call with a research-oriented query.
+
+### Tools and resources
+
+Alongside its tools (`web_search`, `image_search`, `news_search`, `ai_summarize`, `check_balance`, `get_search_stats`), the server exposes live server stats as an MCP **resource**:
+
+| Type | Name | Description |
+|---|---|---|
+| Resource | `stellar-search://health` | Live server stats as JSON (`application/json`), backed by `GET /health` |
+| Tool | `get_search_stats` | The same stats, formatted for a chat reply |
+
+Server stats are reference data, so they fit the resource model better than a tool: a client can surface them without a model deciding to spend a tool call on it. Clients that support resources can list and read it directly:
+
+```json
+// resources/list
+{
+  "resources": [
+    {
+      "uri": "stellar-search://health",
+      "name": "stellar-search-health",
+      "mimeType": "application/json"
+    }
+  ]
+}
+```
+
+```json
+// resources/read — { "uri": "stellar-search://health" }
+{
+  "status": "ok",
+  "network": "stellar:testnet",
+  "pricePerQuery": "0.001 USDC",
+  "protocol": "x402",
+  "facilitator": "https://www.x402.org/facilitator",
+  "totalQueries": 1234,
+  "totalUsdcSettled": "1.2340",
+  "avgLatencyMs": 812,
+  "uptime": "2h",
+  "serperApiConfigured": true,
+  "groqApiConfigured": true,
+  "receivingAddressConfigured": true
+}
+```
+
+`get_search_stats` is kept for backward compatibility — it reads the same endpoint and still works for clients that only call tools.
 
 ---
 

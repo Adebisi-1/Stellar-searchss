@@ -8,6 +8,10 @@
  *   - summarize_url:    fetches a public URL and summarises it with Groq (free)
  *   - check_balance:    reads live USDC balance from Stellar Horizon
  *
+ * Exposes one resource for clients that want reference data without a tool
+ * round-trip:
+ *   - stellar-search://health: live server stats as JSON, backed by GET /health
+ *
  * Setup: see README.md → "Claude Code / MCP Integration"
  */
 
@@ -16,8 +20,12 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
   ListPromptsRequestSchema,
   GetPromptRequestSchema,
+  ErrorCode,
+  McpError,
 } from '@modelcontextprotocol/sdk/types.js'
 import Groq from 'groq-sdk'
 import dotenv from 'dotenv'
@@ -82,10 +90,55 @@ export function reportToolError(tool: string, error: unknown) {
   }
 }
 
+const HEALTH_RESOURCE_URI = 'stellar-search://health'
+const HEALTH_RESOURCE_MIME_TYPE = 'application/json'
+
+// MCP spec reserves -32002 for "resource not found"; the SDK's ErrorCode enum
+// has no member for it, so it is declared here.
+const RESOURCE_NOT_FOUND = -32002
+
+interface ServerStats {
+  status:                     string
+  network:                    string
+  pricePerQuery:              string
+  protocol:                   string
+  facilitator:                string
+  totalQueries:               number
+  totalUsdcSettled:           string
+  avgLatencyMs:               number
+  uptime:                     string
+  serperApiConfigured:        boolean
+  groqApiConfigured:          boolean
+  receivingAddressConfigured: boolean
+}
+
+// Shared by the get_search_stats tool and the health resource so both report
+// identical numbers from a single fetch path.
+async function fetchServerStats(): Promise<ServerStats> {
+  const res = await fetch(`${SERVER_URL}/health`)
+  if (!res.ok) throw new Error(`Server health check returned ${res.status}`)
+  return (await res.json()) as ServerStats
+}
+
+function formatServerStats(stats: ServerStats): string {
+  return [
+    `📊 StellarSearch Server Stats`,
+    `   Status:           ${stats.status.toUpperCase()}`,
+    `   Network:          ${stats.network}`,
+    `   Uptime:           ${stats.uptime}`,
+    `   Total Queries:    ${stats.totalQueries.toLocaleString()}`,
+    `   USDC Settled:     ${stats.totalUsdcSettled} USDC`,
+    `   Avg Latency:      ${stats.avgLatencyMs}ms`,
+    `   Price per Query:  ${stats.pricePerQuery}`,
+    `   Facilitator:      ${stats.facilitator}`,
+    `   APIs Configured:  Serper: ${stats.serperApiConfigured ? '✅' : '❌'}, Groq: ${stats.groqApiConfigured ? '✅' : '❌'}`,
+  ].join('\n')
+}
+
 // ─── MCP server ───────────────────────────────────────────────────────────
 const server = new Server(
   { name: 'stellar-search', version: APP_VERSION },
-  { capabilities: { tools: {}, prompts: {} } },
+  { capabilities: { tools: {}, prompts: {}, resources: {} } },
 )
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -177,7 +230,8 @@ private, loopback and link-local addresses are refused. Large pages are truncate
     },
     {
       name: 'get_search_stats',
-      description: 'Get live statistics from the StellarSearch server (total queries, USDC settled, uptime, latencies).',
+      description: `Get live statistics from the StellarSearch server (total queries, USDC settled, uptime, latencies).
+Prefer reading the ${HEALTH_RESOURCE_URI} resource if your client supports resources — it returns the same data as JSON without a tool call.`,
       inputSchema: {
         type: 'object',
         properties: {},
@@ -526,34 +580,52 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   // ── get_search_stats ──────────────────────────────────────────────────
   if (name === 'get_search_stats') {
     try {
-      const res = await fetch(`${SERVER_URL}/health`)
-      if (!res.ok) throw new Error(`Server health check returned ${res.status}`)
-
-      const stats = await res.json()
-      
-      return {
-        content: [{
-          type: 'text',
-          text: [
-            `📊 StellarSearch Server Stats`,
-            `   Status:           ${stats.status.toUpperCase()}`,
-            `   Network:          ${stats.network}`,
-            `   Uptime:           ${stats.uptime}`,
-            `   Total Queries:    ${stats.totalQueries.toLocaleString()}`,
-            `   USDC Settled:     ${stats.totalUsdcSettled} USDC`,
-            `   Avg Latency:      ${stats.avgLatencyMs}ms`,
-            `   Price per Query:  ${stats.pricePerQuery}`,
-            `   Facilitator:      ${stats.facilitator}`,
-            `   APIs Configured:  Serper: ${stats.serperApiConfigured ? '✅' : '❌'}, Groq: ${stats.groqApiConfigured ? '✅' : '❌'}`,
-          ].join('\n'),
-        }],
-      }
+      const stats = await fetchServerStats()
+      return { content: [{ type: 'text', text: formatServerStats(stats) }] }
     } catch (err: any) {
       return reportToolError('Server stats', err)
     }
   }
 
   return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true }
+})
+
+// ─── Resources ────────────────────────────────────────────────────────────
+// Server stats are reference data, so a client can list and read them directly
+// instead of making the model decide to spend a tool call asking. The
+// get_search_stats tool is kept for backward compatibility.
+server.setRequestHandler(ListResourcesRequestSchema, async () => ({
+  resources: [
+    {
+      uri: HEALTH_RESOURCE_URI,
+      name: 'stellar-search-health',
+      title: 'StellarSearch server health',
+      description:
+        `Live StellarSearch server stats as JSON: status, network, uptime, total queries, ` +
+        `USDC settled, average latency and which APIs are configured. Backed by GET ${SERVER_URL}/health.`,
+      mimeType: HEALTH_RESOURCE_MIME_TYPE,
+    },
+  ],
+}))
+
+server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+  const { uri } = request.params
+
+  if (uri !== HEALTH_RESOURCE_URI) {
+    throw new McpError(RESOURCE_NOT_FOUND, `Unknown resource: ${uri}. Available: ${HEALTH_RESOURCE_URI}`)
+  }
+
+  try {
+    const stats = await fetchServerStats()
+    return {
+      contents: [
+        { uri, mimeType: HEALTH_RESOURCE_MIME_TYPE, text: JSON.stringify(stats, null, 2) },
+      ],
+    }
+  } catch (err: any) {
+    console.error('[MCP health resource]', err)
+    throw new McpError(ErrorCode.InternalError, getSafeToolErrorMessage('Health resource', err))
+  }
 })
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
