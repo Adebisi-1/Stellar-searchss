@@ -5,16 +5,34 @@
  * Exposes tools for Claude Code (and any MCP client):
  *   - web_search:       pays 0.001 USDC via x402, returns Serper.dev results
  *   - ai_summarize:     uses Groq to summarise search results
+ *   - summarize_url:    fetches a public URL and summarises it with Groq (free)
  *   - check_balance:    reads live USDC balance from Stellar Horizon
+ *
+ * Exposes one resource for clients that want reference data without a tool
+ * round-trip:
+ *   - stellar-search://health: live server stats as JSON, backed by GET /health
  *
  * Setup: see README.md → "Claude Code / MCP Integration"
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+  ListResourcesRequestSchema,
+  ReadResourceRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
+  ErrorCode,
+  McpError,
+} from '@modelcontextprotocol/sdk/types.js'
 import Groq from 'groq-sdk'
 import dotenv from 'dotenv'
+import { readFileSync } from 'fs'
+import { resolve, dirname } from 'path'
+import { fileURLToPath } from 'url'
+import { pathToFileURL } from 'node:url'
 import { StrKey } from '@stellar/stellar-sdk'
 import { 
   HORIZON_URL, 
@@ -27,10 +45,97 @@ import {
 
 dotenv.config()
 
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const { version: APP_VERSION } = JSON.parse(
+  readFileSync(resolve(__dirname, '../package.json'), 'utf-8'),
+)
+
 const SERVER_URL = process.env.SEARCH_API_URL || 'http://localhost:3001'
 const GROQ_API_KEY = process.env.GROQ_API_KEY!
 
 const groq = new Groq({ apiKey: GROQ_API_KEY })
+
+type ErrorCategory = 'authentication/configuration' | 'network/request' | 'upstream service' | 'invalid request' | 'unexpected internal'
+
+function errorText(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return ''
+  }
+}
+
+export function getSafeToolErrorMessage(tool: string, error: unknown): string {
+  const message = errorText(error).toLowerCase()
+  let category: ErrorCategory = 'unexpected internal'
+
+  if (/api.?key|authentication|unauthori[sz]ed|forbidden|\b401\b|\b403\b/.test(message)) {
+    category = 'authentication/configuration'
+  } else if (/fetch failed|network|timeout|timed out|econn|enotfound|socket/.test(message)) {
+    category = 'network/request'
+  } else if (/\bhttp\s*\d|upstream|horizon returned|server health check/.test(message)) {
+    category = 'upstream service'
+  } else if (/invalid|not found|missing|bad request|\b400\b|\b404\b/.test(message)) {
+    category = 'invalid request'
+  }
+
+  return `${tool} failed: ${category} error. Please check the request and try again.`
+}
+
+export function reportToolError(tool: string, error: unknown) {
+  console.error(`[MCP ${tool}]`, error)
+  return {
+    content: [{ type: 'text' as const, text: getSafeToolErrorMessage(tool, error) }],
+    isError: true,
+  }
+}
+
+const HEALTH_RESOURCE_URI = 'stellar-search://health'
+const HEALTH_RESOURCE_MIME_TYPE = 'application/json'
+
+// MCP spec reserves -32002 for "resource not found"; the SDK's ErrorCode enum
+// has no member for it, so it is declared here.
+const RESOURCE_NOT_FOUND = -32002
+
+interface ServerStats {
+  status:                     string
+  network:                    string
+  pricePerQuery:              string
+  protocol:                   string
+  facilitator:                string
+  totalQueries:               number
+  totalUsdcSettled:           string
+  avgLatencyMs:               number
+  uptime:                     string
+  serperApiConfigured:        boolean
+  groqApiConfigured:          boolean
+  receivingAddressConfigured: boolean
+}
+
+// Shared by the get_search_stats tool and the health resource so both report
+// identical numbers from a single fetch path.
+async function fetchServerStats(): Promise<ServerStats> {
+  const res = await fetch(`${SERVER_URL}/health`)
+  if (!res.ok) throw new Error(`Server health check returned ${res.status}`)
+  return (await res.json()) as ServerStats
+}
+
+function formatServerStats(stats: ServerStats): string {
+  return [
+    `📊 StellarSearch Server Stats`,
+    `   Status:           ${stats.status.toUpperCase()}`,
+    `   Network:          ${stats.network}`,
+    `   Uptime:           ${stats.uptime}`,
+    `   Total Queries:    ${stats.totalQueries.toLocaleString()}`,
+    `   USDC Settled:     ${stats.totalUsdcSettled} USDC`,
+    `   Avg Latency:      ${stats.avgLatencyMs}ms`,
+    `   Price per Query:  ${stats.pricePerQuery}`,
+    `   Facilitator:      ${stats.facilitator}`,
+    `   APIs Configured:  Serper: ${stats.serperApiConfigured ? '✅' : '❌'}, Groq: ${stats.groqApiConfigured ? '✅' : '❌'}`,
+  ].join('\n')
+}
 
 // ─── Balance helpers ──────────────────────────────────────────────────────
 const NETWORK_NAME = STELLAR_NETWORK.split(':')[1]
@@ -188,8 +293,8 @@ function balanceMessage(address: string, account: HorizonAccount): string {
 
 // ─── MCP server ───────────────────────────────────────────────────────────
 const server = new Server(
-  { name: 'stellar-search', version: '1.0.0' },
-  { capabilities: { tools: {} } },
+  { name: 'stellar-search', version: APP_VERSION },
+  { capabilities: { tools: {}, prompts: {}, resources: {} } },
 )
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -219,6 +324,7 @@ Use for visual references, photos, diagrams, or anything where you need image re
         properties: {
           query: { type: 'string', description: 'Image search query' },
           count: { type: 'number', description: 'Results count (1–10, default 5)', default: 5 },
+          freshness: { type: 'string', enum: ['pd', 'pw', 'pm'], description: 'Age: pd=day, pw=week, pm=month' },
         },
         required: ['query'],
       },
@@ -251,6 +357,23 @@ Use for breaking stories, current events, and time-sensitive reporting.`,
       },
     },
     {
+      name: 'summarize_url',
+      description: `Fetch a public web page and summarise it with Groq (Llama 3). Free — no payment required.
+Use it to read a link returned by web_search or news_search. Only public http(s) URLs on ports 80/443 are allowed;
+private, loopback and link-local addresses are refused. Large pages are truncated before summarising.`,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: 'Public http(s) URL to read' },
+          instruction: {
+            type: 'string',
+            description: 'Optional: what to do with the page (e.g. "extract the pricing table"). Defaults to a summary with key points.',
+          },
+        },
+        required: ['url'],
+      },
+    },
+    {
       name: 'check_balance',
       description: 'Check live USDC and XLM balance for a Stellar address from Horizon.',
       inputSchema: {
@@ -263,7 +386,8 @@ Use for breaking stories, current events, and time-sensitive reporting.`,
     },
     {
       name: 'get_search_stats',
-      description: 'Get live statistics from the StellarSearch server (total queries, USDC settled, uptime, latencies).',
+      description: `Get live statistics from the StellarSearch server (total queries, USDC settled, uptime, latencies).
+Prefer reading the ${HEALTH_RESOURCE_URI} resource if your client supports resources — it returns the same data as JSON without a tool call.`,
       inputSchema: {
         type: 'object',
         properties: {},
@@ -271,6 +395,122 @@ Use for breaking stories, current events, and time-sensitive reporting.`,
     },
   ],
 }))
+
+// ─── MCP prompts ──────────────────────────────────────────────────────────
+server.setRequestHandler(ListPromptsRequestSchema, async () => ({
+  prompts: [
+    {
+      name: 'cited_research',
+      description: 'Research a topic on the web and produce a cited summary with sources.',
+      arguments: [
+        { name: 'topic', description: 'The topic or question to research', required: true },
+        { name: 'depth', description: 'Number of sources to gather (1–10, default 5)', required: false },
+      ],
+    },
+    {
+      name: 'competitive_comparison',
+      description: 'Compare two or more companies, products, or technologies using fresh web results.',
+      arguments: [
+        { name: 'subject_a', description: 'First company, product, or technology', required: true },
+        { name: 'subject_b', description: 'Second company, product, or technology', required: true },
+        { name: 'criteria', description: 'Comparison criteria (e.g. pricing, features, performance)', required: false },
+      ],
+    },
+    {
+      name: 'news_roundup',
+      description: 'Summarise the latest news on a topic from the past week with sources.',
+      arguments: [
+        { name: 'topic', description: 'Topic or beat to round up', required: true },
+        { name: 'count', description: 'Number of articles to gather (1–20, default 10)', required: false },
+      ],
+    },
+  ],
+}))
+
+server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+  const { name, arguments: args } = request.params
+
+  if (name === 'cited_research') {
+    const topic = (args?.topic as string) || ''
+    const depth = (args?.depth as string) || '5'
+    return {
+      description: `Cited research on "${topic}"`,
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: [
+              `Research the following topic and produce a well-cited summary: "${topic}".`,
+              '',
+              `Steps:`,
+              `1. Call the \`web_search\` tool with query="${topic}" and count=${depth} to gather current sources.`,
+              `2. Optionally call \`ai_summarize\` on the combined results with instruction="extract key claims and supporting evidence".`,
+              `3. Write a concise summary (3–5 paragraphs) that cites each source inline as [n], matching the numbered results.`,
+              `4. End with a "Sources" list mapping [n] to the full URL.`,
+              '',
+              `Prefer recent, authoritative sources. Flag any claims that lack a citation.`,
+            ].join('\n'),
+          },
+        },
+      ],
+    }
+  }
+
+  if (name === 'competitive_comparison') {
+    const subjectA = (args?.subject_a as string) || ''
+    const subjectB = (args?.subject_b as string) || ''
+    const criteria = (args?.criteria as string) || 'features, pricing, strengths, and weaknesses'
+    return {
+      description: `Competitive comparison: ${subjectA} vs ${subjectB}`,
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: [
+              `Compare "${subjectA}" and "${subjectB}" on: ${criteria}.`,
+              '',
+              `Steps:`,
+              `1. Call \`web_search\` with query="${subjectA} ${criteria}" and count=5.`,
+              `2. Call \`web_search\` with query="${subjectB} ${criteria}" and count=5.`,
+              `3. Optionally call \`ai_summarize\` on the combined results with instruction="compare and contrast".`,
+              `4. Produce a markdown table with one row per criterion and one column per subject, followed by a short "Verdict" paragraph.`,
+              `5. Cite sources inline as [n] and list them at the end.`,
+            ].join('\n'),
+          },
+        },
+      ],
+    }
+  }
+
+  if (name === 'news_roundup') {
+    const topic = (args?.topic as string) || ''
+    const count = (args?.count as string) || '10'
+    return {
+      description: `News roundup on "${topic}"`,
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: [
+              `Produce a news roundup on "${topic}" covering the past week.`,
+              '',
+              `Steps:`,
+              `1. Call \`news_search\` with query="${topic}", count=${count}, and freshness="pw".`,
+              `2. Group the articles into 2–4 themes and summarise each theme in 2–3 sentences.`,
+              `3. For each article, include the title, source, publication date, and URL.`,
+              `4. Note any conflicting reporting or gaps in coverage.`,
+            ].join('\n'),
+          },
+        },
+      ],
+    }
+  }
+
+  throw new Error(`Unknown prompt: ${name}`)
+})
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params
@@ -311,17 +551,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }],
       }
     } catch (err: any) {
-      return { content: [{ type: 'text', text: `Search failed: ${err.message}` }], isError: true }
+      return reportToolError('Search', err)
     }
   }
 
   // ── image_search ──────────────────────────────────────────────────────
   if (name === 'image_search') {
-    const { query, count = 5 } = args as { query: string; count?: number }
+    const { query, count = 5, freshness } = args as { query: string; count?: number; freshness?: string }
 
     try {
       const safeCount = Math.min(Math.max(parseInt(String(count)) || 5, 1), 10)
       const params = new URLSearchParams({ q: query, count: String(safeCount) })
+      if (freshness) params.set('freshness', freshness)
 
       const res = await fetch(`${SERVER_URL}/images?${params}`)
 
@@ -348,7 +589,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }],
       }
     } catch (err: any) {
-      return { content: [{ type: 'text', text: `Image search failed: ${err.message}` }], isError: true }
+      return reportToolError('Image search', err)
     }
   }
 
@@ -391,7 +632,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }],
       }
     } catch (err: any) {
-      return { content: [{ type: 'text', text: `News search failed: ${err.message}` }], isError: true }
+      return reportToolError('News search', err)
     }
   }
 
@@ -413,7 +654,45 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const content = completion.choices[0]?.message?.content || 'No response.'
       return { content: [{ type: 'text', text: content }] }
     } catch (err: any) {
-      return { content: [{ type: 'text', text: `Groq error: ${err.message}` }], isError: true }
+      return reportToolError('AI summary', err)
+    }
+  }
+
+  // ── summarize_url ─────────────────────────────────────────────────────
+  // Fetching happens on the StellarSearch server, which enforces the SSRF
+  // guard (see server/urlSummary.ts), so there is one place that talks to
+  // arbitrary URLs.
+  if (name === 'summarize_url') {
+    const { url, instruction } = args as { url: string; instruction?: string }
+
+    try {
+      const res = await fetch(`${SERVER_URL}/summarize-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, instruction }),
+      })
+      const data = (await res.json().catch(() => ({}))) as {
+        url?: string
+        title?: string | null
+        summary?: string
+        truncated?: boolean
+        error?: string
+      }
+      if (!res.ok) throw new Error(data.error || `Server returned ${res.status}`)
+
+      return {
+        content: [{
+          type: 'text',
+          text: [
+            `🔗 ${data.title ? `${data.title}\n   ` : ''}${data.url}`,
+            data.truncated ? '✂️ Page was long; summarised the first part only.' : '',
+            '',
+            data.summary,
+          ].filter((line, i) => line !== '' || i === 2).join('\n'),
+        }],
+      }
+    } catch (err: any) {
+      return { content: [{ type: 'text', text: `summarize_url failed: ${err.message}` }], isError: true }
     }
   }
 
@@ -463,43 +742,63 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const account: HorizonAccount = await res.json()
       return { content: [{ type: 'text', text: balanceMessage(address, account) }] }
     } catch (err: any) {
-      return { content: [{ type: 'text', text: `Balance check failed: ${err.message}` }], isError: true }
+      return reportToolError('Balance check', err)
     }
   }
 
   // ── get_search_stats ──────────────────────────────────────────────────
   if (name === 'get_search_stats') {
     try {
-      const res = await fetch(`${SERVER_URL}/health`)
-      if (!res.ok) throw new Error(`Server health check returned ${res.status}`)
-
-      const stats = await res.json()
-      
-      return {
-        content: [{
-          type: 'text',
-          text: [
-            `📊 StellarSearch Server Stats`,
-            `   Status:           ${stats.status.toUpperCase()}`,
-            `   Network:          ${stats.network}`,
-            `   Uptime:           ${stats.uptime}`,
-            `   Total Queries:    ${stats.totalQueries.toLocaleString()}`,
-            `   USDC Settled:     ${stats.totalUsdcSettled} USDC`,
-            `   Avg Latency:      ${stats.avgLatencyMs}ms`,
-            `   Price per Query:  ${stats.pricePerQuery}`,
-            `   Facilitator:      ${stats.facilitator}`,
-            `   APIs Configured:  Serper: ${stats.serperApiConfigured ? '✅' : '❌'}, Groq: ${stats.groqApiConfigured ? '✅' : '❌'}`,
-          ].join('\n'),
-        }],
-      }
+      const stats = await fetchServerStats()
+      return { content: [{ type: 'text', text: formatServerStats(stats) }] }
     } catch (err: any) {
-      return { content: [{ type: 'text', text: `Failed to fetch server stats: ${err.message}` }], isError: true }
+      return reportToolError('Server stats', err)
     }
   }
 
   return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true }
 })
 
-const transport = new StdioServerTransport()
-await server.connect(transport)
-console.error('StellarSearch MCP server started')
+// ─── Resources ────────────────────────────────────────────────────────────
+// Server stats are reference data, so a client can list and read them directly
+// instead of making the model decide to spend a tool call asking. The
+// get_search_stats tool is kept for backward compatibility.
+server.setRequestHandler(ListResourcesRequestSchema, async () => ({
+  resources: [
+    {
+      uri: HEALTH_RESOURCE_URI,
+      name: 'stellar-search-health',
+      title: 'StellarSearch server health',
+      description:
+        `Live StellarSearch server stats as JSON: status, network, uptime, total queries, ` +
+        `USDC settled, average latency and which APIs are configured. Backed by GET ${SERVER_URL}/health.`,
+      mimeType: HEALTH_RESOURCE_MIME_TYPE,
+    },
+  ],
+}))
+
+server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+  const { uri } = request.params
+
+  if (uri !== HEALTH_RESOURCE_URI) {
+    throw new McpError(RESOURCE_NOT_FOUND, `Unknown resource: ${uri}. Available: ${HEALTH_RESOURCE_URI}`)
+  }
+
+  try {
+    const stats = await fetchServerStats()
+    return {
+      contents: [
+        { uri, mimeType: HEALTH_RESOURCE_MIME_TYPE, text: JSON.stringify(stats, null, 2) },
+      ],
+    }
+  } catch (err: any) {
+    console.error('[MCP health resource]', err)
+    throw new McpError(ErrorCode.InternalError, getSafeToolErrorMessage('Health resource', err))
+  }
+})
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const transport = new StdioServerTransport()
+  await server.connect(transport)
+  console.error('StellarSearch MCP server started')
+}
