@@ -457,6 +457,8 @@ When you open a bug, include:
 
 Only write a comment when the **why** is non-obvious — a hidden constraint, a Stellar SDK quirk, or a workaround for a specific bug. Do not comment what the code does; well-named identifiers do that. Do not leave `TODO:` comments in PRs — open an issue instead.
 
+Significant architecture decisions are recorded as [Architecture Decision Records](./docs/adr/README.md) in `docs/adr/`. If your change reverses or revises one of those decisions, update the relevant ADR (or write a new one that supersedes it).
+
 ```ts
 // Freighter returns a Buffer, not a string — must convert to base64 explicitly.
 // Using .toString() gives "[object Buffer]" (9 chars) causing x402 signature length error.
