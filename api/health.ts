@@ -1,4 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { readFileSync } from 'fs'
+import { resolve, dirname } from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const { version: APP_VERSION } = JSON.parse(
+  readFileSync(resolve(__dirname, '../package.json'), 'utf-8'),
+)
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const NETWORK = process.env.STELLAR_NETWORK || 'stellar:testnet'
@@ -9,6 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   res.json({
     status: 'ok',
+    version: APP_VERSION,
     network: NETWORK,
     pricePerQuery: '0.001 USDC',
     protocol: 'x402',
