@@ -1,4 +1,4 @@
-import { Zap } from 'lucide-react'
+import Zap from 'lucide-react/dist/esm/icons/zap'
 import { STELLAR_EXPERT_URL, IS_MAINNET } from '../../lib/stellar'
 
 const LINKS = [
@@ -10,8 +10,8 @@ const LINKS = [
 
 export function Footer() {
   return (
-    <footer className="border-t border-white/4 py-5">
-      <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+    <footer className="border-t white/4 py-5">
+      <div className="max-w-6l mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <div
             className="w-5 h-5 rounded flex items-center justify-center"
@@ -20,7 +20,7 @@ export function Footer() {
             <Zap className="w-2.5 h-2.5 text-neon-cyan" />
           </div>
           <span className="font-display text-xs text-white/20">
-            STELLARSEARCH · Stellar Hackathon 2026
+            STELLARSEARCH &#183; Stellar Hackathon 2026
           </span>
         </div>
         <div className="flex items-center gap-5">
