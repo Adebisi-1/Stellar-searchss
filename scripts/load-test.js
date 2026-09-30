@@ -3,16 +3,16 @@
  * Load test for the paid /search endpoint (issue #133).
  *
  * Targets a payment-disabled instance so the test never spends real USDC.
- * The script refuses to run unless PAYMENT_DISABLED=true is set, which is the
+ * The script refuses to run unless PAYMENTS_DISABLED=true is set, which is the
  * flag the server uses to skip the facilitator round trip and Serper billing.
  *
  * Usage:
- *   PAYMENT_DISABLED=true BASE_URL=http://localhost:3000 \
+ *   PAYMENTS_DISABLED=true BASE_URL=http://localhost:3000 \
  *     node scripts/load-test.js
  *
  * Env vars:
  *   BASE_URL          Base URL of the payment-disabled instance (default http://localhost:3000)
- *   PAYMENT_DISABLED  Must be "true" to run; guards against spending funds
+ *   PAYMENTS_DISABLED  Must be "true" to run; guards against spending funds
  *   CONCURRENCY       Number of concurrent workers (default 50)
  *   DURATION_MS       How long to run the test in ms (default 30000)
  *   QUERY             Search query to send (default "load test")
@@ -22,25 +22,26 @@
 
 'use strict';
 
-const http = require('http');
-const https = require('https');
-const { URL } = require('url');
+import http from 'node:http';
+import https from 'node:https';
+import { URL } from 'node:url';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
-const PAYMENT_DISABLED = process.env.PAYMENT_DISABLED === 'true';
+const PAYMENTS_DISABLED = process.env.PAYMENTS_DISABLED === 'true';
 const CONCURRENCY = parseInt(process.env.CONCURRENCY || '50', 10);
 const DURATION_MS = parseInt(process.env.DURATION_MS || '30000', 10);
 const QUERY = process.env.QUERY || 'load test';
 
-if (!PAYMENT_DISABLED) {
+if (!PAYMENTS_DISABLED) {
   console.error(
-    'Refusing to run: set PAYMENT_DISABLED=true to target a payment-disabled instance.\n' +
+    'Refusing to run: set PAYMENTS_DISABLED=true to target a payment-disabled instance.\n' +
       'This prevents the load test from spending real USDC.'
   );
   process.exit(1);
 }
 
-const target = new URL('/search', BASE_URL);
+const target = new URL('/api/search', BASE_URL);
+target.searchParams.set('q', QUERY);
 const client = target.protocol === 'https:' ? https : http;
 
 const latencies = [];
@@ -52,14 +53,13 @@ let stop = false;
 function request() {
   return new Promise((resolve) => {
     const started = process.hrtime.bigint();
-    const body = JSON.stringify({ query: QUERY });
     const req = client.request(
       target,
       {
-        method: 'POST',
+        method: 'GET',
         headers: {
           'content-type': 'application/json',
-          'content-length': Buffer.byteLength(body),
+          'accept': 'application/json',
         },
       },
       (res) => {
@@ -75,6 +75,7 @@ function request() {
         });
       }
     );
+    req.setTimeout(10000, () => req.destroy(new Error('Request timed out')));
     req.on('error', () => {
       const elapsedMs = Number(process.hrtime.bigint() - started) / 1e6;
       latencies.push(elapsedMs);
@@ -82,7 +83,7 @@ function request() {
       errors += 1;
       resolve();
     });
-    req.end(body);
+    req.end();
   });
 }
 

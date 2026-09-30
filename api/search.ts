@@ -11,9 +11,9 @@ const RECEIVING_ADDRESS = process.env.STELLAR_RECEIVING_ADDRESS!
 const NETWORK           = STELLAR_NETWORK as 'stellar:testnet' | 'stellar:mainnet'
 const SERPER_API_KEY    = process.env.SERPER_API_KEY!
 
-// When set, the payment gate is bypassed so load tests can exercise the
-// facilitator + Serper path without spending real USDC. Never enable in prod.
-const PAYMENTS_DISABLED = process.env.PAYMENTS_DISABLED === 'true'
+// Local load tests may skip payment; production always retains the payment gate.
+const PAYMENTS_DISABLED = process.env.NODE_ENV === 'development' &&
+  process.env.VERCEL_ENV !== 'production' && process.env.PAYMENTS_DISABLED === 'true'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
 
