@@ -14,6 +14,7 @@
  */
 
 import express, { Request, Response } from 'express'
+import compression from 'compression'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import { readFileSync } from 'fs'
@@ -109,6 +110,15 @@ const groq = new Groq({ apiKey: GROQ_API_KEY })
 
 // ─── Middleware ───────────────────────────────────────────────────────────
 app.use(cors(buildCorsOptions()))
+app.use(compression({
+  // SSE must remain uncompressed so each event is delivered immediately.
+  filter: (req, res) => {
+    if (req.path === '/ai/chat' || res.getHeader('Content-Type')?.toString().includes('text/event-stream')) {
+      return false
+    }
+    return compression.filter(req, res)
+  },
+}))
 app.use(express.json())
 
 // ─── x402 payment guard on /search ───────────────────────────────────────
