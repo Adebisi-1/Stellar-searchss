@@ -5,6 +5,7 @@
  * Exposes tools for Claude Code (and any MCP client):
  *   - web_search:       pays 0.001 USDC via x402, returns Serper.dev results
  *   - ai_summarize:     uses Groq to summarise search results
+ *   - summarize_url:    fetches a public URL and summarises it with Groq (free)
  *   - check_balance:    reads live USDC balance from Stellar Horizon
  *
  * Setup: see README.md → "Claude Code / MCP Integration"
@@ -15,6 +16,9 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import Groq from 'groq-sdk'
 import dotenv from 'dotenv'
+import { readFileSync } from 'fs'
+import { resolve, dirname } from 'path'
+import { fileURLToPath } from 'url'
 import { 
   HORIZON_URL, 
   USDC_ISSUER, 
@@ -25,6 +29,11 @@ import {
 
 dotenv.config()
 
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const { version: APP_VERSION } = JSON.parse(
+  readFileSync(resolve(__dirname, '../package.json'), 'utf-8'),
+)
+
 const SERVER_URL = process.env.SEARCH_API_URL || 'http://localhost:3001'
 const GROQ_API_KEY = process.env.GROQ_API_KEY!
 
@@ -32,7 +41,7 @@ const groq = new Groq({ apiKey: GROQ_API_KEY })
 
 // ─── MCP server ───────────────────────────────────────────────────────────
 const server = new Server(
-  { name: 'stellar-search', version: '1.0.0' },
+  { name: 'stellar-search', version: APP_VERSION },
   { capabilities: { tools: {} } },
 )
 
@@ -63,6 +72,7 @@ Use for visual references, photos, diagrams, or anything where you need image re
         properties: {
           query: { type: 'string', description: 'Image search query' },
           count: { type: 'number', description: 'Results count (1–10, default 5)', default: 5 },
+          freshness: { type: 'string', enum: ['pd', 'pw', 'pm'], description: 'Age: pd=day, pw=week, pm=month' },
         },
         required: ['query'],
       },
@@ -92,6 +102,23 @@ Use for breaking stories, current events, and time-sensitive reporting.`,
           instruction: { type: 'string', description: 'What to do with the text (e.g. "summarise", "extract key points")', default: 'summarise' },
         },
         required: ['text'],
+      },
+    },
+    {
+      name: 'summarize_url',
+      description: `Fetch a public web page and summarise it with Groq (Llama 3). Free — no payment required.
+Use it to read a link returned by web_search or news_search. Only public http(s) URLs on ports 80/443 are allowed;
+private, loopback and link-local addresses are refused. Large pages are truncated before summarising.`,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          url: { type: 'string', description: 'Public http(s) URL to read' },
+          instruction: {
+            type: 'string',
+            description: 'Optional: what to do with the page (e.g. "extract the pricing table"). Defaults to a summary with key points.',
+          },
+        },
+        required: ['url'],
       },
     },
     {
@@ -161,11 +188,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   // ── image_search ──────────────────────────────────────────────────────
   if (name === 'image_search') {
-    const { query, count = 5 } = args as { query: string; count?: number }
+    const { query, count = 5, freshness } = args as { query: string; count?: number; freshness?: string }
 
     try {
       const safeCount = Math.min(Math.max(parseInt(String(count)) || 5, 1), 10)
       const params = new URLSearchParams({ q: query, count: String(safeCount) })
+      if (freshness) params.set('freshness', freshness)
 
       const res = await fetch(`${SERVER_URL}/images?${params}`)
 
@@ -258,6 +286,44 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return { content: [{ type: 'text', text: content }] }
     } catch (err: any) {
       return { content: [{ type: 'text', text: `Groq error: ${err.message}` }], isError: true }
+    }
+  }
+
+  // ── summarize_url ─────────────────────────────────────────────────────
+  // Fetching happens on the StellarSearch server, which enforces the SSRF
+  // guard (see server/urlSummary.ts), so there is one place that talks to
+  // arbitrary URLs.
+  if (name === 'summarize_url') {
+    const { url, instruction } = args as { url: string; instruction?: string }
+
+    try {
+      const res = await fetch(`${SERVER_URL}/summarize-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, instruction }),
+      })
+      const data = (await res.json().catch(() => ({}))) as {
+        url?: string
+        title?: string | null
+        summary?: string
+        truncated?: boolean
+        error?: string
+      }
+      if (!res.ok) throw new Error(data.error || `Server returned ${res.status}`)
+
+      return {
+        content: [{
+          type: 'text',
+          text: [
+            `🔗 ${data.title ? `${data.title}\n   ` : ''}${data.url}`,
+            data.truncated ? '✂️ Page was long; summarised the first part only.' : '',
+            '',
+            data.summary,
+          ].filter((line, i) => line !== '' || i === 2).join('\n'),
+        }],
+      }
+    } catch (err: any) {
+      return { content: [{ type: 'text', text: `summarize_url failed: ${err.message}` }], isError: true }
     }
   }
 
