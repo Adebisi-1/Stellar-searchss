@@ -69,9 +69,25 @@ npm run dev
 
 ### 6. Test the x402 flow
 
+Default mode is **free** — it asserts request validation, `/health`, and that
+`/search` enforces payment (expects HTTP 402). It settles nothing and exits
+non-zero if any check fails:
+
 ```bash
 npm run test:search "Stellar blockchain"
 ```
+
+Full paid flow (**spends testnet USDC**, ~0.001 USDC per search, up to ~0.003
+USDC per run). Requires a funded testnet payer key in `.env`:
+
+```bash
+# .env:
+STELLAR_PAYER_SECRET=S...  # testnet account with XLM + USDC trustline + balance
+npm run test:search "Stellar blockchain" -- --paid
+```
+
+Human-readable result listings appear only with `--verbose`; `--json` prints a
+machine-readable summary. See `scripts/test-search.ts -- --help`.
 
 ---
 
