@@ -166,9 +166,9 @@ Before you begin, make sure you have:
 ### 1. Fork and clone
 
 ```bash
-# Fork the repo on GitHub first, then:
-git clone https://github.com/<your-username>/Stellar-Search.git
-cd Stellar-Search
+# Fork the repository on GitHub first, then clone it:
+git clone https://github.com/StellarAgent-AI-Agent-Payment-Rails/Stellar-searchss.git
+cd Stellar-searchss
 ```
 
 ### 2. Install dependencies
@@ -301,7 +301,7 @@ stellar-search/
 
 ### Pick an issue
 
-Browse [open issues](https://github.com/Emmy123222/Stellar-Search/issues). Issues labelled **good first issue** are specifically chosen for first-time contributors — they are scoped, self-contained, and have clear acceptance criteria.
+Browse [open issues](https://github.com/StellarAgent-AI-Agent-Payment-Rails/Stellar-searchss/issues). Issues labelled **good first issue** are specifically chosen for first-time contributors — they are scoped, self-contained, and have clear acceptance criteria.
 
 Comment on the issue before you start: _"I'd like to work on this"_ — this avoids duplicate effort.
 
@@ -419,7 +419,7 @@ When you open a bug, include:
 
 - Explain the **problem** you are solving, not just the solution you have in mind.
 - If the feature involves the payment flow or blockchain state, describe how edge cases (network error, wallet rejection, insufficient balance) should behave.
-- Check the [open issues](https://github.com/Emmy123222/Stellar-Search/issues) first — the backlog already has 50+ scoped ideas waiting for contributors.
+- Check the [open issues](https://github.com/StellarAgent-AI-Agent-Payment-Rails/Stellar-searchss/issues) first — the backlog already has 50+ scoped ideas waiting for contributors.
 
 ---
 
@@ -476,7 +476,7 @@ const signedAuthEntry = Buffer.from(raw as unknown as Uint8Array).toString('base
 
 ## Testing
 
-Currently the project relies on manual testing. We are actively adding automated tests — see the open [testing issues](https://github.com/Emmy123222/Stellar-Search/issues?q=is%3Aopen+label%3Atesting). If you are adding a new hook or server route, please include tests.
+Currently the project relies on manual testing. We are actively adding automated tests — see the open [testing issues](https://github.com/StellarAgent-AI-Agent-Payment-Rails/Stellar-searchss/issues?q=is%3Aopen+label%3Atesting). If you are adding a new hook or server route, please include tests.
 
 ### Manual testing checklist
 
@@ -543,7 +543,7 @@ npm run test:search "Stellar blockchain"
 
 ## Getting Help
 
-- **Bug or question about the code?** Open a [GitHub Issue](https://github.com/Emmy123222/Stellar-Search/issues/new).
+- **Bug or question about the code?** Open a [GitHub Issue](https://github.com/StellarAgent-AI-Agent-Payment-Rails/Stellar-searchss/issues/new).
 - **Something in this guide is wrong or unclear?** Open a PR fixing it — contributions to docs are just as valuable as code.
 - **x402 protocol questions?** See the [official x402 docs](https://x402.org) and the [Stellar agentic payments guide](https://developers.stellar.org/docs/build/agentic-payments/x402/built-on-stellar).
 - **Freighter API reference?** [Stellar Freighter docs](https://docs.freighter.app).
