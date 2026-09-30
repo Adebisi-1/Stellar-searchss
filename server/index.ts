@@ -120,7 +120,7 @@ const MAX_QUERY_LENGTH = 256
 // Validate and sanitize the user-supplied `q` parameter. Returns either the
 // cleaned string or a 400 response body to send back. Centralised so /search
 // and /images share the same rules.
-function validateQuery(
+export function validateQuery(
   q: unknown,
 ): { ok: true; cleanQ: string } | { ok: false; error: string } {
   if (typeof q !== 'string' || !q.trim()) {
