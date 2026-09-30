@@ -18,9 +18,10 @@ interface Props {
   session: SearchSession
   search: (query: string, count?: number) => Promise<void>
   reset: () => void
+  onNavigateFundingGuide: () => void
 }
 
-export function SearchPage({ wallet, onConnectWallet, session, search, reset }: Props) {
+export function SearchPage({ wallet, onConnectWallet, session, search, reset, onNavigateFundingGuide }: Props) {
   const handleSearch = (query: string) => {
     if (!wallet.connected) { onConnectWallet(); return }
     search(query)
@@ -93,6 +94,7 @@ export function SearchPage({ wallet, onConnectWallet, session, search, reset }: 
         connected={wallet.connected}
         publicKey={wallet.publicKey}
         usdcBalance={wallet.usdcBalance}
+        onOpenGuide={onNavigateFundingGuide}
       />
 
       <SearchBar

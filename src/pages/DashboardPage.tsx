@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { useState, useEffect, useMemo } from 'react'
-import { ExternalLink, Activity, BarChart2, RefreshCw, History, Search } from 'lucide-react'
+import { ExternalLink, Activity, BarChart2, RefreshCw, History, Search, ChevronDown } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { IS_MAINNET, STELLAR_NETWORK, AMOUNT_USDC, STELLAR_EXPERT_URL, truncateHash, formatTimeAgo, explorerTxUrl, explorerAccountUrl } from '../lib/stellar'
 import type { StellarTransaction } from '../hooks/useFreighterWallet'
@@ -18,9 +18,12 @@ interface Props {
   usdcBalance: string
   xlmBalance: string
   onRefresh: () => void
+  hasMore: boolean
+  onLoadMore: () => void
+  loadingMore: boolean
 }
 
-export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance, xlmBalance, onRefresh }: Props) {
+export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance, xlmBalance, onRefresh, hasMore, onLoadMore, loadingMore }: Props) {
   const [receipts, setReceipts] = useState<SearchReceipt[]>([])
   const [storeQueryText, setStoreQueryText] = useState(isSearchQueryStorageEnabled)
 
@@ -282,6 +285,31 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
             ))
           )}
         </div>
+
+        {!txLoading && transactions.length > 0 && (
+          <div className="flex justify-center p-4 border-t border-white/5">
+            {hasMore ? (
+              <button
+                onClick={onLoadMore}
+                disabled={loadingMore}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-neon-cyan/20 text-neon-cyan/70 hover:text-neon-cyan hover:border-neon-cyan/40 transition-colors font-display text-xs tracking-widest disabled:opacity-40"
+              >
+                {loadingMore ? (
+                  <motion.div
+                    className="w-3 h-3 rounded-full border-2 border-neon-cyan/30 border-t-neon-cyan"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                  />
+                ) : (
+                  <ChevronDown className="w-3 h-3" />
+                )}
+                {loadingMore ? 'LOADING' : 'LOAD MORE'}
+              </button>
+            ) : (
+              <span className="font-display text-white/20 tracking-widest" style={{ fontSize: '10px' }}>END OF HISTORY</span>
+            )}
+          </div>
+        )}
       </motion.div>
 
       {/* Search Audit Log */}

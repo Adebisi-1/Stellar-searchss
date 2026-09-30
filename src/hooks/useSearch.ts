@@ -10,7 +10,7 @@
  * Fix: convert Buffer → base64 string using Buffer.from(result).toString('base64')
  */
 
-import { useState, useCallback }              from 'react'
+import { useState, useCallback, createElement }              from 'react'
 import { toast }                               from 'sonner'
 import { x402Client, x402HTTPClient }          from '@x402/fetch'
 import { ExactStellarScheme }                  from '@x402/stellar/exact/client'
@@ -197,13 +197,18 @@ export function useSearch(walletAddress: string | null = null) {
       })
 
       if (data.txHash) {
-        toast.success(`Payment settled: ${data.paidAmount || '0.001'} USDC`, {
-          description: 'View transaction on Stellar network',
-          action: {
-            label: 'Explorer',
-            onClick: () => window.open(explorerTxUrl(data.txHash), '_blank')
+        toast.success(
+          createElement('div', { role: 'status', 'aria-live': 'polite' }, 
+            `Payment settled: ${data.paidAmount || '0.001'} USDC`
+          ), 
+          {
+            description: 'View transaction on Stellar network',
+            action: {
+              label: 'Explorer',
+              onClick: () => window.open(explorerTxUrl(data.txHash), '_blank')
+            }
           }
-        })
+        )
       }
 
       // Persist receipt
@@ -232,7 +237,10 @@ export function useSearch(walletAddress: string | null = null) {
     } catch (err: any) {
       console.error('❌ Search failed:', err)
       const msg = err.message || 'Search failed.'
-      toast.error('Search Payment Failed', { description: msg })
+      toast.error(
+        createElement('div', { role: 'alert', 'aria-live': 'assertive' }, 'Search Payment Failed'),
+        { description: msg }
+      )
       setSession(prev => ({
         ...prev,
         status: 'error',
