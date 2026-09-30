@@ -1,17 +1,4 @@
-/**
- * StellarSearch Server
- * Real x402 payment middleware + Serper.dev Search + Groq AI
- *
- * Uses the CORRECT API per official Stellar x402 quickstart:
- *   paymentMiddlewareFromConfig() instead of paymentMiddleware()
- *   This is what the official docs and x402-stellar repo use.
- *
- * Packages:
- *   @x402/express  — paymentMiddlewareFromConfig
- *   @x402/stellar  — ExactStellarScheme (server)
- *   @x402/core     — HTTPFacilitatorClient
- *   groq-sdk       — Groq AI (Llama 3)
- */
+
 
 import express, { Request, Response } from 'express'
 import cors from 'cors'
