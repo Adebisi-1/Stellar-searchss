@@ -11,6 +11,10 @@ const RECEIVING_ADDRESS = process.env.STELLAR_RECEIVING_ADDRESS!
 const NETWORK           = STELLAR_NETWORK as 'stellar:testnet' | 'stellar:mainnet'
 const SERPER_API_KEY    = process.env.SERPER_API_KEY!
 
+// Local load tests may skip payment; production always retains the payment gate.
+const PAYMENTS_DISABLED = process.env.NODE_ENV === 'development' &&
+  process.env.VERCEL_ENV !== 'production' && process.env.PAYMENTS_DISABLED === 'true'
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ─── CORS ─────────────────────────────────────────────────────────────────
@@ -42,7 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     req.headers['x-payment']         ||
     req.headers['X-PAYMENT']
 
-  if (!paymentHeader) {
+  if (!paymentHeader && !PAYMENTS_DISABLED) {
     // Return x402 v2 payment requirements
     // The key fix: asset must be a Soroban C... contract address, NOT "USDC:ISSUER"
     const paymentRequired = {
@@ -74,7 +78,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // ─── Payment present — proceed with search ────────────────────────────────
-  console.log('✅ Payment header received')
+  if (paymentHeader) console.log('✅ Payment header received')
+  else console.log('⚠️  PAYMENTS_DISABLED — bypassing payment gate (load test mode)')
 
   let txHash: string | null = null
   try {
