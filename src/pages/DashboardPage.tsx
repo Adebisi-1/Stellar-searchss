@@ -5,6 +5,11 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { IS_MAINNET, STELLAR_NETWORK, AMOUNT_USDC, STELLAR_EXPERT_URL, truncateHash, formatTimeAgo, explorerTxUrl, explorerAccountUrl } from '../lib/stellar'
 import type { StellarTransaction } from '../hooks/useFreighterWallet'
 import type { SearchReceipt } from '../hooks/useSearch'
+import {
+  isSearchQueryStorageEnabled,
+  RECEIPTS_STORAGE_KEY,
+  setSearchQueryStorageEnabled,
+} from '../lib/searchPrivacy'
 
 interface Props {
   transactions: StellarTransaction[]
@@ -20,12 +25,20 @@ interface Props {
 
 export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance, xlmBalance, onRefresh, hasMore, onLoadMore, loadingMore }: Props) {
   const [receipts, setReceipts] = useState<SearchReceipt[]>([])
+  const [storeQueryText, setStoreQueryText] = useState(isSearchQueryStorageEnabled)
 
   useEffect(() => {
-    const raw = localStorage.getItem('stellarsearch_receipts')
+    const raw = localStorage.getItem(RECEIPTS_STORAGE_KEY)
     if (raw) {
       try {
-        setReceipts(JSON.parse(raw))
+        const saved: SearchReceipt[] = JSON.parse(raw)
+        if (!isSearchQueryStorageEnabled()) {
+          const redacted = saved.map((receipt) => ({ ...receipt, query: '' }))
+          localStorage.setItem(RECEIPTS_STORAGE_KEY, JSON.stringify(redacted))
+          setReceipts(redacted)
+        } else {
+          setReceipts(saved)
+        }
       } catch (e) {
         console.error('Failed to parse receipts:', e)
       }
@@ -33,6 +46,20 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
   }, [])
 
   const networkLabel = IS_MAINNET ? 'STELLAR MAINNET' : 'STELLAR TESTNET'
+
+  const handleQueryStorageChange = (enabled: boolean) => {
+    setSearchQueryStorageEnabled(enabled)
+    setStoreQueryText(enabled)
+    if (!enabled) {
+      setReceipts((current) => current.map((receipt) => ({ ...receipt, query: '' })))
+    }
+  }
+
+  const clearReceipts = () => {
+    if (!window.confirm('Clear all search receipts stored in this browser?')) return
+    localStorage.removeItem(RECEIPTS_STORAGE_KEY)
+    setReceipts([])
+  }
 
   const chartData = useMemo(() => {
     const usdcTxs = transactions.filter(tx => tx.asset === 'USDC')
@@ -299,9 +326,38 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
             <span className="font-display text-xs text-white/30 tracking-widest">SEARCH AUDIT LOG</span>
             <span className="font-display text-white/15" style={{ fontSize: '10px' }}>· PERSISTED LOCALLY</span>
           </div>
-          <div className="font-display text-[10px] text-white/20 uppercase tracking-wider">
-            {receipts.length} RECEIPTS
+          <div className="flex items-center gap-3">
+            <span className="font-display text-[10px] text-white/20 uppercase tracking-wider">
+              {receipts.length} RECEIPTS
+            </span>
+            <button
+              type="button"
+              onClick={clearReceipts}
+              disabled={receipts.length === 0}
+              className="font-display text-[10px] text-white/30 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              CLEAR RECEIPTS
+            </button>
           </div>
+        </div>
+
+        <div className="flex flex-col gap-2 p-5 border-b border-white/5 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <label htmlFor="store-search-query" className="text-sm text-white/65">
+              Save search query text in this browser
+            </label>
+            <p id="search-query-privacy-help" className="mt-1 max-w-2xl text-xs text-white/35">
+              Off by default. Receipts still keep the transaction hash, amount, time, and network. Turning this off also removes query text from saved receipts.
+            </p>
+          </div>
+          <input
+            id="store-search-query"
+            type="checkbox"
+            checked={storeQueryText}
+            onChange={(event) => handleQueryStorageChange(event.target.checked)}
+            aria-describedby="search-query-privacy-help"
+            className="mt-1 h-4 w-4 accent-cyan-400"
+          />
         </div>
 
         <div className="divide-y divide-white/4">
@@ -322,7 +378,9 @@ export function DashboardPage({ transactions, txLoading, publicKey, usdcBalance,
               >
                 <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${receipt.network === 'stellar:mainnet' ? 'bg-neon-amber' : 'bg-neon-cyan'}`} />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white/70 font-medium truncate">"{receipt.query}"</p>
+                  <p className="text-sm text-white/70 font-medium truncate">
+                    {receipt.query ? `"${receipt.query}"` : 'Query text not stored'}
+                  </p>
                   <div className="flex items-center gap-3 mt-1">
                     <a
                       href={explorerTxUrl(receipt.txHash)}

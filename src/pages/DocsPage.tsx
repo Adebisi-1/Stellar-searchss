@@ -297,6 +297,17 @@ export function DocsPage() {
         </div>
       </section>
 
+      {/* Search privacy */}
+      <section className="space-y-3" aria-labelledby="search-privacy-heading">
+        <div>
+          <span className="font-display text-xs text-neon-cyan/35 tracking-widest">LOCAL DATA</span>
+          <h2 id="search-privacy-heading" className="font-display text-2xl text-white mt-1">Search history and privacy</h2>
+        </div>
+        <p className="text-white/45 text-sm leading-relaxed">
+          Successful paid searches keep a local receipt in this browser, including the transaction hash, amount, time, and network. Search query text is not stored unless you opt in using the “Save search query text in this browser” control in the Dashboard. Turning the setting off removes query text from existing receipts; you can also clear all local receipts there. Receipts are kept only in this browser’s localStorage and are limited to the 50 most recent searches.
+        </p>
+      </section>
+
       {/* Hackathon note */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
