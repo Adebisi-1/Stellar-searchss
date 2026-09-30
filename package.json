@@ -17,7 +17,8 @@
     "test:parity": "tsx tests/parity.test.ts",
     "deploy": "npm run build && vercel --prod",
     "load-test": "node scripts/load-test.js",
-    "test:url": "node --import tsx --test server/urlSummary.test.ts"
+    "test:url": "node --import tsx --test server/urlSummary.test.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
@@ -63,7 +64,7 @@
   },
   "lint-staged": {
     "*.{ts,tsx}": [
-      "bash -c 'tsc --noEmit'"
+      "eslint --fix"
     ]
   }
 }
