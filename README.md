@@ -130,21 +130,18 @@ stellar-search/
 
 ## Claude Code / MCP integration
 
-```json
-// claude_mcp.json
-{
-  "mcpServers": {
-    "stellar-search": {
-      "command": "npx",
-      "args": ["tsx", "./mcp-server/index.ts"],
-      "env": {
-        "GROQ_API_KEY": "your_groq_api_key",
-        "SEARCH_API_URL": "http://localhost:3001"
-      }
-    }
-  }
-}
-```
+The MCP server can use either your local API or the hosted StellarSearch API. The [`claude_mcp.json`](claude_mcp.json) example includes both entries; keep or enable the one you want to use. Run the config from the repository root after installing dependencies with `npm install`.
+
+The example uses `npx tsx ./mcp-server/index.ts` because the MCP server is written in TypeScript. `tsx` runs the source directly without a compilation step, and is available through this project's dependencies. Alternatively, build or bundle the MCP entry point as JavaScript with Node-resolvable imports, then configure the MCP client to run that generated file with `node`. `tsconfig.server.json` covers server and MCP code and emits to `dist`; the default `npm run build` builds the frontend and does not compile the MCP server.
+
+The MCP server reads these environment variables:
+
+| Variable | Required | Description |
+|---|---|---|
+| `GROQ_API_KEY` | Yes | Groq API key used by the `ai_summarize` tool. The Groq client is initialized when the MCP server starts, so provide a key even if you only plan to use other tools. |
+| `SEARCH_API_URL` | No | Base URL for the StellarSearch API used by search and stats tools. Defaults to `http://localhost:3001`. For the hosted service, use `https://stellar-search-2twg.vercel.app/api`. |
+
+The local entry expects the API server to be running on port 3001. The hosted entry connects to the deployed API and does not require a local API server. Both still require a Groq key for the MCP process to start.
 
 Then tell Claude Code: `"Search for the latest Stellar x402 examples"` — it calls `web_search`, the server pays via x402, and Claude gets real results.
 
