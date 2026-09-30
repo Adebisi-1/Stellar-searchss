@@ -16,7 +16,15 @@
 import express, { Request, Response } from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
+import { readFileSync } from 'fs'
+import { resolve, dirname } from 'path'
+import { fileURLToPath } from 'url'
 import { buildCorsOptions, getCorsStartupMessage } from './corsConfig.js'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const { version: APP_VERSION } = JSON.parse(
+  readFileSync(resolve(__dirname, '../package.json'), 'utf-8'),
+)
 import Groq from 'groq-sdk'
 import { paymentMiddlewareFromConfig } from '@x402/express'
 import { ExactStellarScheme } from '@x402/stellar/exact/server'
@@ -488,6 +496,7 @@ app.get('/health', (_req: Request, res: Response) => {
 
   res.json({
     status:                    'ok',
+    version:                   APP_VERSION,
     network:                   NETWORK,
     pricePerQuery:             '0.001 USDC',
     protocol:                  'x402',
@@ -506,7 +515,7 @@ app.get('/health', (_req: Request, res: Response) => {
 app.get('/', (_req: Request, res: Response) => {
   res.json({
     name:        'StellarSearch',
-    version:     '1.0.0',
+    version:     APP_VERSION,
     description: 'Pay-per-query web search for AI agents via x402 on Stellar',
     endpoints: {
       'GET /search?q=<query>': '0.001 USDC via x402',

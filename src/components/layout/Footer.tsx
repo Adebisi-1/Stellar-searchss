@@ -1,6 +1,9 @@
 import { Zap } from 'lucide-react'
 import { STELLAR_EXPERT_URL, IS_MAINNET } from '../../lib/stellar'
 
+// Injected by Vite at build time from package.json → version.
+declare const __APP_VERSION__: string
+
 const LINKS = [
   { label: 'x402.org',         href: 'https://x402.org' },
   { label: 'Stellar Docs',     href: 'https://developers.stellar.org' },
@@ -21,6 +24,17 @@ export function Footer() {
           </div>
           <span className="font-display text-xs text-white/20">
             STELLARSEARCH · Stellar Hackathon 2026
+          </span>
+          <span
+            className="font-mono text-xs px-1.5 py-0.5 rounded"
+            style={{
+              background: 'rgba(0,245,255,0.07)',
+              border: '1px solid rgba(0,245,255,0.15)',
+              color: 'rgba(0,245,255,0.4)',
+            }}
+            title="API version"
+          >
+            v{__APP_VERSION__}
           </span>
         </div>
         <div className="flex items-center gap-5">
