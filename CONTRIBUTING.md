@@ -113,7 +113,7 @@ Open `.env` and fill in your values:
 SERPER_API_KEY=your_serper_api_key_here
 GROQ_API_KEY=gsk_your_groq_key_here
 
-# Required for x402 payment flow
+# Required for x402 payment flow (official x402.org facilitator — no facilitator API key required)
 STELLAR_RECEIVING_ADDRESS=GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 STELLAR_NETWORK=stellar:testnet
 VITE_STELLAR_NETWORK=stellar:testnet
