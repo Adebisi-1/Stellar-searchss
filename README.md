@@ -28,6 +28,8 @@ StellarSearch is a pay-per-query web search API for autonomous AI agents. Every 
 
 ## Setup
 
+> **Note on Mainnet:** If you are preparing to transition this project to the Stellar Mainnet, please read our [Mainnet Transition Guide](docs/mainnet.md) for critical safety checklists and requirements.
+
 ### 1. Clone and install
 
 ```bash
