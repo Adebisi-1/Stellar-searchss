@@ -22,6 +22,7 @@ export interface WalletState {
   usdcBalance: string
   loading: boolean
   error: string | null
+  hint: string | null
 }
 
 export interface StellarTransaction {
@@ -47,6 +48,7 @@ export function useFreighterWallet() {
     usdcBalance: '0',
     loading: false,
     error: null,
+    hint: null,
   })
   const [transactions, setTransactions] = useState<StellarTransaction[]>([])
   const [txLoading, setTxLoading] = useState(false)
@@ -123,7 +125,7 @@ export function useFreighterWallet() {
 
   // Connect Freighter wallet
   const connect = useCallback(async () => {
-    setWallet(prev => ({ ...prev, loading: true, error: null }))
+    setWallet(prev => ({ ...prev, loading: true, error: null, hint: null }))
 
     try {
       const connected = await isConnected()
@@ -164,6 +166,7 @@ export function useFreighterWallet() {
         loading: false,
         connected: false,
         error: err.message || 'Connection failed',
+        hint: err.message || 'Connection failed. Please check Freighter and try again.',
       }))
     }
   }, [fetchBalances, fetchTransactions])
@@ -177,6 +180,7 @@ export function useFreighterWallet() {
       usdcBalance: '0',
       loading: false,
       error: null,
+      hint: null,
     })
     setTransactions([])
   }, [])
@@ -193,22 +197,35 @@ export function useFreighterWallet() {
     const check = async () => {
       try {
         const connected = await isConnected()
-        if (connected.isConnected) {
-          const addr = await getAddress()
-          if (addr.address) {
-            const net = await getNetwork()
-            setWallet(prev => ({
-              ...prev,
-              publicKey: addr.address,
-              connected: true,
-              network: net.network || 'TESTNET',
-            }))
-            fetchBalances(addr.address)
-            fetchTransactions(addr.address)
-          }
+        if (connected.error) {
+          throw new Error(connected.error.message)
         }
-      } catch {
-        // Freighter not installed, silent fail
+        if (!connected.isConnected) return
+
+        const addr = await getAddress()
+        if (addr.error) throw new Error(addr.error.message)
+        if (!addr.address) {
+          throw new Error('Unlock Freighter and connect your wallet to continue.')
+        }
+
+        const net = await getNetwork()
+        if (net.error) throw new Error(net.error.message)
+
+        setWallet(prev => ({
+          ...prev,
+          publicKey: addr.address,
+          connected: true,
+          network: net.network || 'TESTNET',
+        }))
+        fetchBalances(addr.address)
+        fetchTransactions(addr.address)
+      } catch (err: unknown) {
+        setWallet(prev => ({
+          ...prev,
+          hint: err instanceof Error
+            ? err.message
+            : 'Could not reconnect to Freighter. Please try connecting again.',
+        }))
       }
     }
     check()
