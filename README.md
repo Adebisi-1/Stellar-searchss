@@ -31,8 +31,8 @@ StellarSearch is a pay-per-query web search API for autonomous AI agents. Every 
 ### 1. Clone and install
 
 ```bash
-git clone <this-repo>
-cd stellar-search
+git clone https://github.com/StellarAgent-AI-Agent-Payment-Rails/Stellar-searchss.git
+cd Stellar-searchss
 npm install
 ```
 
