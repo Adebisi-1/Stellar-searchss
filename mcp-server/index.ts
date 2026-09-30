@@ -16,6 +16,9 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import Groq from 'groq-sdk'
 import dotenv from 'dotenv'
+import { readFileSync } from 'fs'
+import { resolve, dirname } from 'path'
+import { fileURLToPath } from 'url'
 import { 
   HORIZON_URL, 
   USDC_ISSUER, 
@@ -26,6 +29,11 @@ import {
 
 dotenv.config()
 
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const { version: APP_VERSION } = JSON.parse(
+  readFileSync(resolve(__dirname, '../package.json'), 'utf-8'),
+)
+
 const SERVER_URL = process.env.SEARCH_API_URL || 'http://localhost:3001'
 const GROQ_API_KEY = process.env.GROQ_API_KEY!
 
@@ -33,7 +41,7 @@ const groq = new Groq({ apiKey: GROQ_API_KEY })
 
 // ─── MCP server ───────────────────────────────────────────────────────────
 const server = new Server(
-  { name: 'stellar-search', version: '1.0.0' },
+  { name: 'stellar-search', version: APP_VERSION },
   { capabilities: { tools: {} } },
 )
 
@@ -64,6 +72,7 @@ Use for visual references, photos, diagrams, or anything where you need image re
         properties: {
           query: { type: 'string', description: 'Image search query' },
           count: { type: 'number', description: 'Results count (1–10, default 5)', default: 5 },
+          freshness: { type: 'string', enum: ['pd', 'pw', 'pm'], description: 'Age: pd=day, pw=week, pm=month' },
         },
         required: ['query'],
       },
@@ -179,11 +188,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   // ── image_search ──────────────────────────────────────────────────────
   if (name === 'image_search') {
-    const { query, count = 5 } = args as { query: string; count?: number }
+    const { query, count = 5, freshness } = args as { query: string; count?: number; freshness?: string }
 
     try {
       const safeCount = Math.min(Math.max(parseInt(String(count)) || 5, 1), 10)
       const params = new URLSearchParams({ q: query, count: String(safeCount) })
+      if (freshness) params.set('freshness', freshness)
 
       const res = await fetch(`${SERVER_URL}/images?${params}`)
 
