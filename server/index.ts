@@ -53,6 +53,22 @@ if (!RECEIVING_ADDRESS) console.warn('⚠  STELLAR_RECEIVING_ADDRESS not set')
 if (!SERPER_API_KEY)    console.warn('⚠  SERPER_API_KEY not set')
 if (!GROQ_API_KEY)      console.warn('⚠  GROQ_API_KEY not set')
 
+// ─── Banner helpers ───────────────────────────────────────────────────────
+// Truncate a Stellar address for display, matching the UI's truncateAddress
+// style (first 6 + last 4). Full value is only shown when DEBUG_BANNER=1.
+function truncateAddress(address: string): string {
+  if (!address) return '✗ MISSING'
+  if (address.length <= 12) return address
+  return `${address.slice(0, 6)}…${address.slice(-4)}`
+}
+
+const DEBUG_BANNER = process.env.DEBUG_BANNER === '1'
+
+function displayAddress(address: string): string {
+  if (!address) return '✗ MISSING'
+  return DEBUG_BANNER ? address : truncateAddress(address)
+}
+
 // ─── Groq ─────────────────────────────────────────────────────────────────
 const groq = new Groq({ apiKey: GROQ_API_KEY })
 
@@ -526,7 +542,7 @@ if (process.env.NODE_ENV !== 'production') {
     console.log(`   Facilitator: ${FACILITATOR_URL}`)
     console.log(`   Serper:      ${SERPER_API_KEY ? '✓' : '✗ MISSING'}`)
     console.log(`   Groq:        ${GROQ_API_KEY  ? '✓' : '✗ MISSING'}`)
-    console.log(`   Receiving:   ${RECEIVING_ADDRESS || '✗ MISSING'}`)
+    console.log(`   Receiving:   ${displayAddress(RECEIVING_ADDRESS)}`)
     console.log(`   ${getCorsStartupMessage()}\n`)
   })
 }
