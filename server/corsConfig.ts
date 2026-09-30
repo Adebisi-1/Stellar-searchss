@@ -1,24 +1,48 @@
 /**
  * CORS configuration — dev uses wildcard; production uses ALLOWED_ORIGINS allowlist.
+ *
+ * Header case note: the x402 SDK sends the payment signature header as the
+ * lowercase `payment-signature` form. HTTP header names are case-insensitive,
+ * but the browser preflight `Access-Control-Request-Headers` list is matched
+ * case-insensitively by spec-compliant browsers, so we keep only the canonical
+ * lowercase form to avoid duplication.
  */
 
 import type { CorsOptions } from 'cors'
 
+/**
+ * Request headers the payment flow actually sends.
+ *
+ * - `Content-Type`: JSON request bodies.
+ * - `Authorization`: optional bearer auth on protected routes.
+ * - `payment-signature`: the x402 SDK payment signature header (lowercase).
+ * - `X-Payment`: legacy x402 payment header still accepted by the server.
+ */
 const CORS_ALLOWED_HEADERS = [
   'Content-Type',
   'Authorization',
-  'X-Payment',
   'payment-signature',
-  'x-payment',
-  'X-PAYMENT',
+  'X-Payment',
 ] as const
 
+/**
+ * Response headers the client needs to read from the payment flow.
+ *
+ * - `PAYMENT-REQUIRED`: sent on 402 responses to describe the payment requirements.
+ * - `X-Payment-Response`: sent on successful payment settlement responses.
+ */
 const CORS_EXPOSED_HEADERS = [
   'PAYMENT-REQUIRED',
   'X-Payment-Response',
 ] as const
 
 const CORS_METHODS = ['GET', 'POST', 'OPTIONS'] as const
+
+/**
+ * Preflight cache duration in seconds. Paid requests are preflighted only once
+ * per cache window instead of on every request.
+ */
+const CORS_MAX_AGE = 86400
 
 export function parseAllowedOrigins(raw?: string): string[] {
   return (raw ?? '')
@@ -49,6 +73,7 @@ export function buildCorsOptions(): CorsOptions {
     allowedHeaders: [...CORS_ALLOWED_HEADERS],
     exposedHeaders: [...CORS_EXPOSED_HEADERS],
     methods: [...CORS_METHODS],
+    maxAge: CORS_MAX_AGE,
   }
 
   if (!isProductionEnv()) {
