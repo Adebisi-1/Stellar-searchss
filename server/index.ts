@@ -48,6 +48,27 @@ const stats = {
   totalUsdcSettled: 0,
   latencies: [] as number[],
   startTime: Date.now(),
+  cacheHits: 0,
+  cacheMisses: 0,
+}
+
+// ─── Query Cache ──────────────────────────────────────────────────────────
+// Cache hits are still charged. The x402 payment middleware runs before this
+// route handler, so identical requests within the TTL pay the fee but skip
+// the upstream Serper.dev call to reduce latency and API cost.
+const CACHE_TTL_MS = 60 * 1000 // 60 seconds
+interface CacheEntry {
+  data: any
+  timestamp: number
+}
+const queryCache = new Map<string, CacheEntry>()
+
+function getCacheKey(type: string, q: string, params: Record<string, string | undefined>): string {
+  const parts = [type, q]
+  for (const k of Object.keys(params).sort()) {
+    if (params[k] !== undefined) parts.push(`${k}=${params[k]}`)
+  }
+  return parts.join('|')
 }
 
 // Cap on how much untrusted third-party snippet text we feed into the Groq
@@ -204,6 +225,19 @@ app.get('/search', async (req: Request, res: Response) => {
 
   const t0 = Date.now()
 
+  const cacheKey = getCacheKey('search', cleanQ, { count, freshness, suggestions: req.query.suggestions as string })
+  const cached = queryCache.get(cacheKey)
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    stats.cacheHits++
+    stats.totalQueries++
+    stats.totalUsdcSettled += 0.001
+    res.setHeader('X-Cache', 'HIT')
+    const txHash = (req.headers['x-payment-response'] as string) || null
+    return res.json({ ...cached.data, txHash, latencyMs: Date.now() - t0 })
+  }
+  stats.cacheMisses++
+  res.setHeader('X-Cache', 'MISS')
+
   try {
     const requestBody: any = {
       q: cleanQ,
@@ -301,7 +335,7 @@ app.get('/search', async (req: Request, res: Response) => {
       }
     }
 
-    return res.json({
+    const responseData = {
       query: cleanQ,
       results,
       count: results.length,
@@ -311,7 +345,11 @@ app.get('/search', async (req: Request, res: Response) => {
       txHash,
       latencyMs,
       suggestions,
-    })
+    }
+
+    queryCache.set(cacheKey, { data: responseData, timestamp: Date.now() })
+
+    return res.json(responseData)
   } catch (err: any) {
     console.error('[search error]', err.message)
     return res.status(500).json({ error: 'Search failed. Check server logs.' })
@@ -327,6 +365,19 @@ app.get('/images', async (req: Request, res: Response) => {
   const cleanQ = v.cleanQ
 
   const t0 = Date.now()
+
+  const cacheKey = getCacheKey('images', cleanQ, { count })
+  const cached = queryCache.get(cacheKey)
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    stats.cacheHits++
+    stats.totalQueries++
+    stats.totalUsdcSettled += parseFloat(AMOUNT_USDC)
+    res.setHeader('X-Cache', 'HIT')
+    const txHash = (req.headers['x-payment-response'] as string) || null
+    return res.json({ ...cached.data, txHash, latencyMs: Date.now() - t0 })
+  }
+  stats.cacheMisses++
+  res.setHeader('X-Cache', 'MISS')
 
   try {
     const requestBody: any = {
@@ -382,7 +433,7 @@ app.get('/images', async (req: Request, res: Response) => {
 
     const txHash = (req.headers['x-payment-response'] as string) || null
 
-    return res.json({
+    const responseData = {
       query: cleanQ,
       results,
       count: results.length,
@@ -391,7 +442,11 @@ app.get('/images', async (req: Request, res: Response) => {
       currency: 'USDC',
       txHash,
       latencyMs,
-    })
+    }
+
+    queryCache.set(cacheKey, { data: responseData, timestamp: Date.now() })
+
+    return res.json(responseData)
   } catch (err: any) {
     console.error('[images error]', err.message)
     return res.status(500).json({ error: 'Image search failed. Check server logs.' })
@@ -407,6 +462,19 @@ app.get('/news', async (req: Request, res: Response) => {
   const cleanQ = v.cleanQ
 
   const t0 = Date.now()
+
+  const cacheKey = getCacheKey('news', cleanQ, { count, freshness })
+  const cached = queryCache.get(cacheKey)
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    stats.cacheHits++
+    stats.totalQueries++
+    stats.totalUsdcSettled += parseFloat(AMOUNT_USDC)
+    res.setHeader('X-Cache', 'HIT')
+    const txHash = (req.headers['x-payment-response'] as string) || null
+    return res.json({ ...cached.data, txHash, latencyMs: Date.now() - t0 })
+  }
+  stats.cacheMisses++
+  res.setHeader('X-Cache', 'MISS')
 
   try {
     const requestBody: any = {
@@ -460,7 +528,7 @@ app.get('/news', async (req: Request, res: Response) => {
 
     const txHash = (req.headers['x-payment-response'] as string) || null
 
-    return res.json({
+    const responseData = {
       query: cleanQ,
       results,
       count: results.length,
@@ -469,7 +537,11 @@ app.get('/news', async (req: Request, res: Response) => {
       currency: 'USDC',
       txHash,
       latencyMs,
-    })
+    }
+
+    queryCache.set(cacheKey, { data: responseData, timestamp: Date.now() })
+
+    return res.json(responseData)
   } catch (err: any) {
     console.error('[news error]', err.message)
     return res.status(500).json({ error: 'News search failed. Check server logs.' })
@@ -581,6 +653,7 @@ app.get('/health', (_req: Request, res: Response) => {
     totalQueries:              stats.totalQueries,
     totalUsdcSettled:          stats.totalUsdcSettled.toFixed(4),
     avgLatencyMs:              avg,
+    cacheHitRate:              stats.totalQueries > 0 ? (stats.cacheHits / stats.totalQueries).toFixed(2) : '0.00',
     uptime,
     serperApiConfigured:       !!SERPER_API_KEY,
     groqApiConfigured:         !!GROQ_API_KEY,
