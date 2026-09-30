@@ -17,7 +17,7 @@ StellarSearch is a pay-per-query web search API for autonomous AI agents. Every 
 |---|---|
 | Payment protocol | `@x402/express` + `@x402/stellar` + `@x402/core` |
 | Blockchain | Stellar Testnet (via Horizon API) |
-| Facilitator | OpenZeppelin x402 (`channels.openzeppelin.com`) |
+| Facilitator | Official x402 Facilitator (`https://www.x402.org/facilitator`) |
 | Wallet connect | `@stellar/freighter-api` (real Freighter extension) |
 | Balances / tx | Stellar Horizon REST API (live, not mocked) |
 | Search results | Serper.dev API (real Google search results) |
@@ -41,7 +41,6 @@ npm install
 | Key | Where to get it |
 |---|---|
 | `STELLAR_RECEIVING_ADDRESS` | [Stellar Lab](https://laboratory.stellar.org/#account-creator?network=test) — generate + fund testnet keypair |
-| `OPENZEPPELIN_API_KEY` | [channels.openzeppelin.com/testnet/gen](https://channels.openzeppelin.com/testnet/gen) |
 | `SERPER_API_KEY` | [serper.dev](https://serper.dev/) — free tier: 2.5k queries/month |
 | `GROQ_API_KEY` | [console.groq.com/keys](https://console.groq.com/keys) — free |
 
@@ -49,7 +48,7 @@ npm install
 
 ```bash
 cp .env.example .env
-# Fill in the 5 keys above
+# Fill in the 3 keys above (FACILITATOR_URL defaults to https://www.x402.org/facilitator)
 ```
 
 ### 4. Install Freighter
@@ -82,7 +81,7 @@ Browser (Freighter) → GET /search?q=...
                      ← HTTP 402 + payment requirements
                      → Sign Soroban auth entry (Freighter prompt)
                      → GET /search + X-Payment: <signature>
-                     ← OpenZeppelin facilitator verifies + settles 0.001 USDC
+                     ← x402 facilitator (x402.org) verifies + settles 0.001 USDC
                      ← 200 OK + Search results
 ```
 
@@ -90,7 +89,7 @@ Browser (Freighter) → GET /search?q=...
 2. Returns `HTTP 402 Payment Required` with price + network + payTo address
 3. The x402 client signs a Soroban authorization entry via Freighter wallet
 4. Retries with `X-Payment` header containing the signed entry
-5. OpenZeppelin facilitator at `channels.openzeppelin.com/x402/testnet` verifies the signature and settles 0.001 USDC on Stellar testnet
+5. Official x402 facilitator at `https://www.x402.org/facilitator` (configured via `FACILITATOR_URL`) verifies the signature and settles 0.001 USDC on Stellar testnet
 6. Server receives confirmation and returns search results
 
 ---
@@ -156,6 +155,6 @@ Then tell Claude Code: `"Search for the latest Stellar x402 examples"` — it ca
 |---|---|
 | Open-source repo + README | ✅ |
 | 2–3 min video demo | Record showing: connect Freighter → search → see 402 → payment settles → results |
-| Real Stellar testnet transactions | ✅ Every search settles 0.001 USDC via OpenZeppelin facilitator |
+| Real Stellar testnet transactions | ✅ Every search settles 0.001 USDC via the x402 facilitator (`https://www.x402.org/facilitator`) |
 | x402 protocol | ✅ `@x402/express` + `@x402/stellar` |
 | Addresses explicit demand signal | ✅ "pay-per-query web search instead of monthly subscriptions" |
