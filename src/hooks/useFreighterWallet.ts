@@ -12,7 +12,7 @@ import {
   getNetwork,
 } from '@stellar/freighter-api'
 import { Horizon } from '@stellar/stellar-sdk'
-import { HORIZON_URL, USDC_ISSUER } from '../lib/stellar'
+import { HORIZON_URL, USDB_ISSUER } from '../lib/stellar'
 
 export interface WalletState {
   publicKey: string | null
@@ -36,7 +36,26 @@ export interface StellarTransaction {
   memo?: string
 }
 
+export const DEFAULT_TX_PAGE_SIZE = 15
+
 const horizon = new Horizon.Server(HORIZON_URL)
+
+function mapOperation(op: any): StellarTransaction {
+  return {
+    id: op.id,
+    hash: op.transaction_hash,
+    type: op.type,
+    amount: op.amount ? parseFloat(op.amount).toFixed(4) : '—',
+    asset:
+      op.asset_type === 'native'
+        ? 'XLM'
+        : op.asset_code || 'Unknown',
+    from: op.from || op.funder || '',
+    to: op.to || op.account || '',
+    timestamp: op.created_at,
+    memo: op.transaction?.memo,
+  }
+}
 
 export function useFreighterWallet() {
   const [wallet, setWallet] = useState<WalletState>({
@@ -50,6 +69,9 @@ export function useFreighterWallet() {
   })
   const [transactions, setTransactions] = useState<StellarTransaction[]>([])
   const [txLoading, setTxLoading] = useState(false)
+  const [txLoadingMore, setTxLoadingMore] = useState(false)
+  const [txCursor, setTxCursor] = useState<string | null>(null)
+  const [txHasMore, setTxHasMore] = useState(false)
 
   // Fetch real balances from Horizon
   const fetchBalances = useCallback(async (publicKey: string) => {
@@ -65,7 +87,7 @@ export function useFreighterWallet() {
         } else if (
           balance.asset_type === 'credit_alphanum4' &&
           (balance as any).asset_code === 'USDC' &&
-          (balance as any).asset_issuer === USDC_ISSUER
+          (balance as any).asset_issuer === USDB_ISSUER
         ) {
           usdc = parseFloat(balance.balance).toFixed(6)
         }
@@ -85,41 +107,75 @@ export function useFreighterWallet() {
     }
   }, [])
 
-  // Fetch real transaction history from Horizon
-  const fetchTransactions = useCallback(async (publicKey: string) => {
-    setTxLoading(true)
-    try {
-      const ops = await horizon
-        .operations()
-        .forAccount(publicKey)
-        .order('desc')
-        .limit(15)
-        .call()
+  // Fetch real transaction history from Horizon (first page)
+  const fetchTransactions = useCallback(
+    async (publicKey: string, pageSize: number = DEFAULT_TX_PAGE_SIZE) => {
+      setTxLoading(true)
+      try {
+        const ops = await horizon
+          .operations()
+          .forAccount(publicKey)
+          .order('desc')
+          .limit(pageSize)
+          .call()
 
-      const txs: StellarTransaction[] = ops.records
-        .filter((op: any) => op.type === 'payment' || op.type === 'create_account')
-        .map((op: any) => ({
-          id: op.id,
-          hash: op.transaction_hash,
-          type: op.type,
-          amount: op.amount ? parseFloat(op.amount).toFixed(4) : '—',
-          asset:
-            op.asset_type === 'native'
-              ? 'XLM'
-              : op.asset_code || 'Unknown',
-          from: op.from || op.funder || '',
-          to: op.to || op.account || '',
-          timestamp: op.created_at,
-          memo: op.transaction?.memo,
-        }))
+        const txs = ops.records
+          .filter((op: any) => op.type === 'payment' || op.type === 'create_account')
+          .map(mapOperation)
 
-      setTransactions(txs)
-    } catch (_) {
-      setTransactions([])
-    } finally {
-      setTxLoading(false)
-    }
-  }, [])
+        setTransactions(txs)
+        setTxCursor(ops.records.length > 0 ? ops.records[ops.records.length - 1].paging_token : null)
+        setTxHasMore(ops.records.length === pageSize)
+      } catch (_) {
+        setTransactions([])
+        setTxCursor(null)
+        setTxHasMore(false)
+      } finally {
+        setTxLoading(false)
+      }
+    },
+    []
+  )
+
+  // Load the next page of transactions using Horizon cursor paging
+  const loadMoreTransactions = useCallback(
+    async (publicKey: string, pageSize: number = DEFAULT_TX_PAGE_SIZE) => {
+      if (!publicKey || !txCursor || !txHasMore || txLoadingMore) {
+        return
+      }
+      setTxLoadingMore(true)
+      try {
+        const ops = await horizon
+          .operations()
+          .forAccount(publicKey)
+          .order('desc')
+          .limit(pageSize)
+          .cursor(txCursor)
+          .call()
+
+        const nextTxs = ops.records
+          .filter((op: any) => op.type === 'payment' || op.type === 'create_account')
+          .map(mapOperation)
+
+        if (ops.records.length === 0) {
+          // Horizon returned an empty page — stop paging cleanly
+          setTxHasMore(false)
+          return
+        }
+
+        setTransactions(prev => [
+...prev, ...nextTxs])
+        setTxCursor(ops.records[ops.records.length - 1].paging_token)
+        setTxHasMore(ops.records.length === pageSize)
+      } catch (_) {
+        // Keep existing transactions on failure and stop further paging attempts
+        setTxHasMore(false)
+      } finally {
+        setTxLoadingMore(false)
+      }
+    },
+    [txCursor, txHasMore, txLoadingMore]
+  )
 
   // Connect Freighter wallet
   const connect = useCallback(async () => {
@@ -179,6 +235,8 @@ export function useFreighterWallet() {
       error: null,
     })
     setTransactions([])
+    setTxCursor(null)
+    setTxHasMore(false)
   }, [])
 
   const refresh = useCallback(async () => {
@@ -218,6 +276,9 @@ export function useFreighterWallet() {
     wallet,
     transactions,
     txLoading,
+    txLoadingMore,
+    txHasMore,
+    loadMoreTransactions,
     connect,
     disconnect,
     refresh,
