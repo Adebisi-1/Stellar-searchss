@@ -13,6 +13,7 @@
     "dev:all": "concurrently \"npm run server\" \"npm run dev\"",
     "test:search": "tsx scripts/test-search.ts",
     "test:suggestions": "tsx scripts/test-search.ts \"Stellar blockchain\" --count 3",
+    "test:parity": "tsx tests/parity.test.ts",
     "deploy": "npm run build && vercel --prod"
   },
   "dependencies": {
@@ -57,4 +58,3 @@
     ]
   }
 }
-
