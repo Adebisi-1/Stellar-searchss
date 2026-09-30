@@ -206,9 +206,10 @@ stellar-search/
 │   │   └── DashboardPage.tsx       # Live Horizon tx history
 │   └── lib/stellar.ts              # Horizon helpers
 ├── server/
-│   └── index.ts                # Express + @x402/express + Serper.dev + Groq
+│   ├── index.ts                # Express + @x402/express + Serper.dev + Groq
+│   └── urlSummary.ts           # SSRF-guarded page fetch + HTML→text for summarize_url
 ├── mcp-server/
-│   └── index.ts                # MCP tools: web_search, ai_summarize, check_balance
+│   └── index.ts                # MCP tools: web_search, ai_summarize, summarize_url, check_balance
 ├── scripts/
 │   └── test-search.ts          # End-to-end test script
 ├── public/
@@ -239,6 +240,28 @@ The MCP server reads these environment variables:
 The local entry expects the API server to be running on port 3001. The hosted entry connects to the deployed API and does not require a local API server. Both still require a Groq key for the MCP process to start.
 
 Then tell Claude Code: `"Search for the latest Stellar x402 examples"` — it calls `web_search`, the server pays via x402, and Claude gets real results.
+
+### `summarize_url` (free)
+
+`summarize_url` lets an agent read a link it found: it fetches the page, strips the HTML to text and summarises it with Groq. It takes `url` and an optional `instruction` (e.g. "extract the pricing table"). The MCP tool calls the server's `POST /summarize-url`:
+
+```bash
+curl -X POST http://localhost:3001/summarize-url \
+  -H 'Content-Type: application/json' \
+  -d '{"url": "https://developers.stellar.org/docs"}'
+```
+
+**Free, not paid.** Like `ai_summarize` and `/ai/chat`, it only costs a Groq call and no Serper query, so it isn't behind x402. If it needs to be paid later, add `POST /summarize-url` to `x402Routes` in `server/index.ts`.
+
+**Limits and SSRF protection.** Fetching arbitrary URLs from the server is an SSRF risk, so:
+
+- only `http`/`https` on ports 80 and 443, with no credentials in the URL
+- `localhost`, `*.local`, `*.internal` and private, loopback, link-local (including `169.254.169.254`), CGNAT, multicast and other reserved IPv4/IPv6 ranges are refused with `403`
+- the address check runs on the IP the socket actually connects to, so a public hostname that resolves (or is rebound) to an internal IP is refused too
+- redirects are followed up to 3 times, and every hop is checked again
+- only `text/html` / `text/plain` responses; a 10 s timeout; at most 1 MB downloaded and 12,000 characters sent to the model (the response says `truncated: true` when it was cut)
+
+Run the tests with `npm run test:url`.
 
 ---
 
