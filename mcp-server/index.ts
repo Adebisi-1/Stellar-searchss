@@ -33,12 +33,14 @@ import { readFileSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { pathToFileURL } from 'node:url'
+import { StrKey } from '@stellar/stellar-sdk'
 import { 
   HORIZON_URL, 
   USDC_ISSUER, 
   STELLAR_NETWORK,
   STELLAR_EXPERT_URL,
-  AMOUNT_USDC
+  AMOUNT_USDC,
+  IS_MAINNET
 } from '../src/lib/constants'
 
 dotenv.config()
@@ -134,6 +136,160 @@ function formatServerStats(stats: ServerStats): string {
     `   APIs Configured:  Serper: ${stats.serperApiConfigured ? '✅' : '❌'}, Groq: ${stats.groqApiConfigured ? '✅' : '❌'}`,
   ].join('\n')
 }
+
+// ─── Balance helpers ──────────────────────────────────────────────────────
+const NETWORK_NAME = STELLAR_NETWORK.split(':')[1]
+const PRICE_PER_SEARCH = parseFloat(AMOUNT_USDC)
+const FRIENDBOT_URL = 'https://friendbot.stellar.org/?addr='
+const FAUCET_URL = 'https://laboratory.stellar.org/#account-creator?network=test'
+const TRUSTLINE_GUIDE_URL =
+  'https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts#trustlines'
+
+interface HorizonBalance {
+  balance: string
+  asset_type: string
+  asset_code?: string
+  asset_issuer?: string
+  is_authorized?: boolean
+  is_authorized_to_maintain_liabilities?: boolean
+}
+
+interface HorizonAccount {
+  balances?: HorizonBalance[]
+}
+
+/**
+ * Validate a Stellar account ID locally so malformed input never reaches
+ * Horizon (which answers 400 and an unhelpful payload).
+ */
+function validateStellarAddress(input: unknown): { address: string } | { error: string } {
+  if (typeof input !== 'string' || input.trim() === '') {
+    return {
+      error: input === undefined || input === null || input === ''
+        ? 'No address provided. Pass a Stellar account ID — 56 characters starting with "G".'
+        : `Expected a Stellar account ID string, received ${typeof input}. Pass a Stellar account ID — 56 characters starting with "G".`,
+    }
+  }
+
+  const address = input.trim()
+
+  if (address.length !== 56) {
+    return {
+      error: `"${address}" is ${address.length} characters long. Stellar account IDs are exactly 56 characters — this looks truncated or pasted wrong.`,
+    }
+  }
+
+  if (!address.startsWith('G')) {
+    return {
+      error: `"${address}" does not start with "G". Stellar account IDs (public keys) always start with G — secret keys start with S and must never be shared.`,
+    }
+  }
+
+  if (!StrKey.isValidEd25519PublicKey(address)) {
+    return {
+      error: `"${address}" is not a valid Stellar account ID — it failed the version/checksum check, so it has a typo in it. Re-copy it from your wallet.`,
+    }
+  }
+
+  return { address }
+}
+
+/**
+ * Horizon returns 404 for an address that exists as a keypair but has never
+ * appeared on-chain. That is a normal, expected state — not a failure.
+ */
+function unfundedAccountMessage(address: string): string {
+  return [
+    `💳 Stellar Account: ${address}`,
+    `   USDC: account not funded`,
+    `   XLM:  account not funded`,
+    `   Network: ${NETWORK_NAME}`,
+    ``,
+    `This account does not exist on Stellar ${NETWORK_NAME} yet. An account only`,
+    `appears once it holds a balance of any asset — until then there are no`,
+    `balances to report, and paying for a search would fail.`,
+    ``,
+    `   To activate it:`,
+    `   1. Give it XLM so it can pay network fees:`,
+    ...(IS_MAINNET
+      ? [`      Buy XLM on an exchange, or use Stellar Laboratory:`,
+         `      https://laboratory.stellar.org/#account-creator?network=public`]
+      : [`      ${FRIENDBOT_URL}${address}`]),
+    `   2. Add a USDC trustline to issuer ${USDC_ISSUER}`,
+    `      ${TRUSTLINE_GUIDE_URL}`,
+    ...(IS_MAINNET ? [] : [`   3. Get free testnet USDC: ${FAUCET_URL}`]),
+    ``,
+    `   Explorer: ${STELLAR_EXPERT_URL}/account/${address}`,
+  ].join('\n')
+}
+
+/** Does this account hold *our* USDC trustline, and if so is it usable? */
+function findUsdcTrustline(account: HorizonAccount): HorizonBalance | undefined {
+  return (account.balances ?? []).find(
+    (b) => b.asset_type !== 'native' && b.asset_code === 'USDC' && b.asset_issuer === USDC_ISSUER,
+  )
+}
+
+function balanceMessage(address: string, account: HorizonAccount): string {
+  const balances = account.balances ?? []
+  const native = balances.find((b) => b.asset_type === 'native')
+  const usdcTrustline = findUsdcTrustline(account)
+  const xlm = native ? parseFloat(native.balance) : 0
+
+  const lines = [`💳 Stellar Account: ${address}`]
+
+  // ── XLM ─────────────────────────────────────────────────────────────────
+  if (native) {
+    lines.push(`   XLM:  ${xlm.toFixed(4)}`)
+  } else {
+    lines.push(`   XLM:  no XLM balance — the account exists but cannot pay network fees`)
+  }
+
+  // ── USDC: three distinct states, not two ───────────────────────────────
+  if (!usdcTrustline) {
+    const otherIssuers = balances
+      .filter((b) => b.asset_code === 'USDC' && b.asset_issuer !== USDC_ISSUER)
+      .map((b) => b.asset_issuer!)
+
+    lines.push(`   USDC: no trustline (not the same as a 0 balance)`)
+    lines.push(``)
+    lines.push(`This account has never accepted StellarSearch USDC, so it cannot hold`)
+    lines.push(`any — it can receive no USDC until a trustline to the issuer is added:`)
+    lines.push(`   Issuer: ${USDC_ISSUER}`)
+    lines.push(`   Guide:  ${TRUSTLINE_GUIDE_URL}`)
+    if (otherIssuers.length) {
+      lines.push(``)
+      lines.push(`Note: this account holds USDC from a different issuer, which cannot pay for searches:`)
+      for (const issuer of otherIssuers) lines.push(`   ${issuer}`)
+    }
+  } else if (usdcTrustline.is_authorized === false) {
+    const balance = parseFloat(usdcTrustline.balance)
+    lines.push(`   USDC: ${balance.toFixed(6)} REVOKED`)
+    lines.push(``)
+    lines.push(`The issuer has revoked this trustline (no longer authorized), so the issuer`)
+    lines.push(`can claw back the balance and the line cannot receive new payments. It must`)
+    lines.push(`be re-authorized by the issuer before it can pay for searches.`)
+  } else {
+    const balance = parseFloat(usdcTrustline.balance)
+    const queries = PRICE_PER_SEARCH > 0 ? Math.floor(balance / PRICE_PER_SEARCH) : 0
+    lines.push(`   USDC: ${balance.toFixed(6)} (~${queries.toLocaleString()} searches remaining)`)
+
+    if (balance === 0) {
+      lines.push(``)
+      lines.push(`The USDC trustline exists and is authorized, but the balance is 0 —`)
+      lines.push(`this account cannot pay for searches until USDC is deposited.`)
+      if (xlm === 0) {
+        lines.push(`It also holds no XLM, so it could not pay network fees either.`)
+      }
+      lines.push(`   Get testnet USDC: ${FAUCET_URL}`)
+    }
+  }
+
+  lines.push(``)
+  lines.push(`   Network: ${NETWORK_NAME}`)
+  lines.push(`   Explorer: ${STELLAR_EXPERT_URL}/account/${address}`)
+
+  return lines.join('\n')}
 
 // ─── MCP server ───────────────────────────────────────────────────────────
 const server = new Server(
@@ -542,36 +698,49 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   // ── check_balance ─────────────────────────────────────────────────────
   if (name === 'check_balance') {
-    const { address } = args as { address: string }
+    const { address: rawAddress } = args as { address?: unknown }
+
+    // Validate locally first: never spend a network round-trip on bad input.
+    const check = validateStellarAddress(rawAddress)
+    if ('error' in check) {
+      return {
+        content: [{ type: 'text', text: `❌ Invalid Stellar address: ${check.error}` }],
+        isError: true,
+      }
+    }
+    const address = check.address
 
     try {
       const res = await fetch(`${HORIZON_URL}/accounts/${address}`)
-      if (res.status === 404) throw new Error(`Account not found on Stellar ${STELLAR_NETWORK.split(':')[1]}`)
-      if (!res.ok) throw new Error(`Horizon returned ${res.status}`)
 
-      const account = await res.json()
-      let xlm = '0', usdc = '0'
+      // 404 = valid keypair, but it has never been funded/used on-chain.
+      // This is an answer, not a failure, so it is not flagged as an error.
+      if (res.status === 404) {
+        return { content: [{ type: 'text', text: unfundedAccountMessage(address) }] }
+      }
 
-      for (const b of account.balances) {
-        if (b.asset_type === 'native') xlm = parseFloat(b.balance).toFixed(4)
-        if (b.asset_type === 'credit_alphanum4' && b.asset_code === 'USDC' && b.asset_issuer === USDC_ISSUER) {
-          usdc = parseFloat(b.balance).toFixed(6)
+      // Reachable if Horizon rejects something StrKey accepted (or is the wrong network).
+      if (res.status === 400) {
+        return {
+          content: [{
+            type: 'text',
+            text: `❌ Horizon rejected ${address} as a malformed account ID. If it should be valid, note that ${NETWORK_NAME} accounts cannot be looked up on another network.`,
+          }],
+          isError: true,
         }
       }
 
-      const queries = Math.floor(parseFloat(usdc) / parseFloat(AMOUNT_USDC))
-      return {
-        content: [{
-          type: 'text',
-          text: [
-            `💳 Stellar Account: ${address}`,
-            `   USDC: ${usdc} (~${queries.toLocaleString()} searches remaining)`,
-            `   XLM:  ${xlm}`,
-            `   Network: ${STELLAR_NETWORK.split(':')[1]}`,
-            `   Explorer: ${STELLAR_EXPERT_URL}/account/${address}`,
-          ].join('\n'),
-        }],
+      if (res.status === 429) {
+        return {
+          content: [{ type: 'text', text: `Balance check failed: Horizon rate limit reached — retry in a few seconds.` }],
+          isError: true,
+        }
       }
+
+      if (!res.ok) throw new Error(`Horizon returned ${res.status}`)
+
+      const account: HorizonAccount = await res.json()
+      return { content: [{ type: 'text', text: balanceMessage(address, account) }] }
     } catch (err: any) {
       return reportToolError('Balance check', err)
     }
