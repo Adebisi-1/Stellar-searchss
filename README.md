@@ -67,6 +67,18 @@ npm run dev
 # → http://localhost:5173
 ```
 
+### Response compression
+
+The Express server compresses eligible responses when the client advertises a
+supported encoding. The `/ai/chat` SSE endpoint is excluded so streamed events
+are delivered immediately. On Vercel, the CDN applies response compression at
+the network edge automatically; the Express middleware is for deployments that
+run this server directly.
+
+To measure gzip savings on a captured search response without making another
+paid request, save its JSON body and run
+`node scripts/measure-compression.mjs < search-response.json`.
+
 ### 6. Test the x402 flow
 
 ```bash
