@@ -6,20 +6,97 @@ This document covers everything you need to go from zero to a merged pull reques
 
 ---
 
+## ⚡ First 15 minutes
+
+Want to see the app running and change something you can look at? Follow this section only — it is the shortest path from clone to a visible change. **No wallet, no testnet account, no blockchain knowledge required.**
+
+Everything after this section is reference material for when you need it.
+
+### 1. Clone and install (~4 min)
+
+```bash
+git clone https://github.com/<your-username>/Stellar-Search.git
+cd Stellar-Search
+npm install          # Node 18+ and npm 9+ required
+```
+
+### 2. Add two free API keys (~4 min)
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` and set **only these two** values:
+
+| Key | Where to get it | Cost |
+|---|---|---|
+| `SERPER_API_KEY` | [serper.dev](https://serper.dev) | Free — 2,500 queries/month |
+| `GROQ_API_KEY` | [console.groq.com/keys](https://console.groq.com/keys) | Free |
+
+Leave every other value in `.env` exactly as it is. `STELLAR_RECEIVING_ADDRESS` can stay as the placeholder and the server will still boot — it only matters for the paid `/search` route (see step 5).
+
+### 3. Run it (~2 min)
+
+```bash
+npm run dev:all      # starts the Express backend (:3001) and Vite frontend (:5173)
+```
+
+Open **http://localhost:5173**. You should see the landing page, navbar, footer and the stats grid. The floating Groq assistant works too, because it only needs `GROQ_API_KEY`.
+
+> Prefer two terminals? Run `npm run server` and `npm run dev` side by side. (`npm run setup` does steps 1 and 2 for you if you would rather run one command.)
+
+### 4. Make a visible change (~3 min)
+
+Pick any file under `src/` and edit it — Vite hot-reloads instantly, so you get feedback in the browser without restarting anything.
+
+```
+src/components/layout/Footer.tsx   # change the tagline text
+src/components/layout/Navbar.tsx   # tweak a link label or spacing
+src/pages/DocsPage.tsx             # fix wording in the docs copy
+```
+
+That is a real, PR-able contribution. Confirm it still typechecks before opening a PR:
+
+```bash
+npx tsc --noEmit
+```
+
+### 5. What you can (and cannot) do without a wallet
+
+| ✅ Works with no wallet | ⛔ Needs Freighter + funded testnet USDC |
+|---|---|
+| Everything in `src/` — pages, components, hooks, styling, copy, layout | `/search` (the 0.001 USDC paid route) and anything that calls it |
+| `npm run dev`, `npm run build`, `npx tsc --noEmit` | `src/hooks/useSearch.ts`, `src/hooks/useFreighterWallet.ts`, `src/components/wallet/WalletPanel.tsx` |
+| `GET /health` and `GET /ai/chat` on the backend | `src/pages/DashboardPage.tsx` (reads live Horizon tx history) |
+| Docs, README, CONTRIBUTING, issue triage, tests | `npm run test:search`, MCP payment tools |
+
+If your change never touches the payment flow, you never need to install Freighter or create a Stellar account. The full wallet walkthrough is in [Local Development Setup](#local-development-setup).
+
+### 6. Find something to work on
+
+- **[Good first issues](https://github.com/Emmy123222/Stellar-Search/issues?q=is%3Aopen+label%3A%22good+first+issue%22)** — scoped, self-contained, with clear acceptance criteria.
+- [All open issues](https://github.com/Emmy123222/Stellar-Search/issues) — the backlog has 50+ scoped ideas.
+- Comment _"I'd like to work on this"_ on the issue before you start, so two people do not build the same thing.
+
+Then branch, commit and open a PR — the conventions are in [Development Workflow](#development-workflow) and [Submitting a Pull Request](#submitting-a-pull-request).
+
+---
+
 ## Table of Contents
 
-1. [Code of Conduct](#code-of-conduct)
-2. [Project Overview](#project-overview)
-3. [Prerequisites](#prerequisites)
-4. [Local Development Setup](#local-development-setup)
-5. [Project Structure](#project-structure)
-6. [Development Workflow](#development-workflow)
-7. [Submitting a Pull Request](#submitting-a-pull-request)
-8. [Issue Guidelines](#issue-guidelines)
-9. [Coding Standards](#coding-standards)
-10. [Testing](#testing)
-11. [Common Pitfalls](#common-pitfalls)
-12. [Getting Help](#getting-help)
+1. [First 15 minutes](#first-15-minutes)
+2. [Code of Conduct](#code-of-conduct)
+3. [Project Overview](#project-overview)
+4. [Prerequisites](#prerequisites)
+5. [Local Development Setup](#local-development-setup)
+6. [Project Structure](#project-structure)
+7. [Development Workflow](#development-workflow)
+8. [Submitting a Pull Request](#submitting-a-pull-request)
+9. [Issue Guidelines](#issue-guidelines)
+10. [Coding Standards](#coding-standards)
+11. [Testing](#testing)
+12. [Common Pitfalls](#common-pitfalls)
+13. [Getting Help](#getting-help)
 
 ---
 
