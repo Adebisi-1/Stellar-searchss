@@ -119,6 +119,7 @@ stellar-search/
 │   └── index.ts                # Express + @x402/express + Serper.dev + Groq
 ├── mcp-server/
 │   └── index.ts                # MCP tools: web_search, ai_summarize, check_balance
+│                                # + the stellar-search://health resource
 ├── scripts/
 │   └── test-search.ts          # End-to-end test script
 ├── .env.example
@@ -147,6 +148,50 @@ stellar-search/
 ```
 
 Then tell Claude Code: `"Search for the latest Stellar x402 examples"` — it calls `web_search`, the server pays via x402, and Claude gets real results.
+
+### Tools and resources
+
+Alongside its tools (`web_search`, `image_search`, `news_search`, `ai_summarize`, `check_balance`, `get_search_stats`), the server exposes live server stats as an MCP **resource**:
+
+| Type | Name | Description |
+|---|---|---|
+| Resource | `stellar-search://health` | Live server stats as JSON (`application/json`), backed by `GET /health` |
+| Tool | `get_search_stats` | The same stats, formatted for a chat reply |
+
+Server stats are reference data, so they fit the resource model better than a tool: a client can surface them without a model deciding to spend a tool call on it. Clients that support resources can list and read it directly:
+
+```json
+// resources/list
+{
+  "resources": [
+    {
+      "uri": "stellar-search://health",
+      "name": "stellar-search-health",
+      "mimeType": "application/json"
+    }
+  ]
+}
+```
+
+```json
+// resources/read — { "uri": "stellar-search://health" }
+{
+  "status": "ok",
+  "network": "stellar:testnet",
+  "pricePerQuery": "0.001 USDC",
+  "protocol": "x402",
+  "facilitator": "https://channels.openzeppelin.com/x402/testnet",
+  "totalQueries": 1234,
+  "totalUsdcSettled": "1.2340",
+  "avgLatencyMs": 812,
+  "uptime": "2h",
+  "serperApiConfigured": true,
+  "groqApiConfigured": true,
+  "receivingAddressConfigured": true
+}
+```
+
+`get_search_stats` is kept for backward compatibility — it reads the same endpoint and still works for clients that only call tools.
 
 ---
 
