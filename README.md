@@ -118,7 +118,7 @@ stellar-search/
 ├── server/
 │   └── index.ts                # Express + @x402/express + Serper.dev + Groq
 ├── mcp-server/
-│   └── index.ts                # MCP tools: web_search, ai_summarize, check_balance
+│   └── index.ts                # MCP tools: web_search, ai_summarize, check_balance + prompts
 ├── scripts/
 │   └── test-search.ts          # End-to-end test script
 ├── .env.example
@@ -147,6 +147,18 @@ stellar-search/
 ```
 
 Then tell Claude Code: `"Search for the latest Stellar x402 examples"` — it calls `web_search`, the server pays via x402, and Claude gets real results.
+
+### MCP prompts
+
+The server also exposes reusable prompt templates that show up in MCP clients' prompt pickers. Each one wires up the right tool with sensible defaults:
+
+| Prompt | Arguments | Tool used | What it does |
+|---|---|---|---|
+| `cited_research` | `topic` (required), `depth` (optional, default `3`) | `web_search` | Researches a topic and returns a cited summary with sources |
+| `competitive_comparison` | `company_a`, `company_b` (required) | `web_search` | Compares two companies side by side with sourced facts |
+| `news_roundup` | `topic` (required), `timeframe` (optional, default `last 7 days`) | `web_search` | Summarizes recent news on a topic with links |
+
+Example: pick `cited_research`, enter `topic: "Stellar x402 adoption"`, and the client issues a `web_search` call with a research-oriented query.
 
 ---
 
