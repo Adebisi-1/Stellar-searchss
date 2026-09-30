@@ -477,4 +477,5 @@ All contributors are welcome to add themselves to a `CONTRIBUTORS` list. When yo
 
 ---
 
-*StellarSearch — Stellar Hackathon 2026 · Agents on Stellar*
+*StellarSearch — Stellar Hackathon 2026 · Agents on Stellar*.
+.
