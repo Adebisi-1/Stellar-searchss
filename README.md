@@ -159,6 +159,7 @@ stellar-search/
 ├── scripts/
 │   └── test-search.ts          # End-to-end test script
 ├── .env.example
+├── vercel.json                 # Committed build + routing config
 ├── claude_mcp.json
 └── README.md
 ```
