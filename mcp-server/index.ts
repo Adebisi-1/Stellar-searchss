@@ -13,7 +13,12 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+  ListPromptsRequestSchema,
+  GetPromptRequestSchema,
+} from '@modelcontextprotocol/sdk/types.js'
 import Groq from 'groq-sdk'
 import dotenv from 'dotenv'
 import { readFileSync } from 'fs'
@@ -80,7 +85,7 @@ export function reportToolError(tool: string, error: unknown) {
 // ─── MCP server ───────────────────────────────────────────────────────────
 const server = new Server(
   { name: 'stellar-search', version: APP_VERSION },
-  { capabilities: { tools: {} } },
+  { capabilities: { tools: {}, prompts: {} } },
 )
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -180,6 +185,122 @@ private, loopback and link-local addresses are refused. Large pages are truncate
     },
   ],
 }))
+
+// ─── MCP prompts ──────────────────────────────────────────────────────────
+server.setRequestHandler(ListPromptsRequestSchema, async () => ({
+  prompts: [
+    {
+      name: 'cited_research',
+      description: 'Research a topic on the web and produce a cited summary with sources.',
+      arguments: [
+        { name: 'topic', description: 'The topic or question to research', required: true },
+        { name: 'depth', description: 'Number of sources to gather (1–10, default 5)', required: false },
+      ],
+    },
+    {
+      name: 'competitive_comparison',
+      description: 'Compare two or more companies, products, or technologies using fresh web results.',
+      arguments: [
+        { name: 'subject_a', description: 'First company, product, or technology', required: true },
+        { name: 'subject_b', description: 'Second company, product, or technology', required: true },
+        { name: 'criteria', description: 'Comparison criteria (e.g. pricing, features, performance)', required: false },
+      ],
+    },
+    {
+      name: 'news_roundup',
+      description: 'Summarise the latest news on a topic from the past week with sources.',
+      arguments: [
+        { name: 'topic', description: 'Topic or beat to round up', required: true },
+        { name: 'count', description: 'Number of articles to gather (1–20, default 10)', required: false },
+      ],
+    },
+  ],
+}))
+
+server.setRequestHandler(GetPromptRequestSchema, async (request) => {
+  const { name, arguments: args } = request.params
+
+  if (name === 'cited_research') {
+    const topic = (args?.topic as string) || ''
+    const depth = (args?.depth as string) || '5'
+    return {
+      description: `Cited research on "${topic}"`,
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: [
+              `Research the following topic and produce a well-cited summary: "${topic}".`,
+              '',
+              `Steps:`,
+              `1. Call the \`web_search\` tool with query="${topic}" and count=${depth} to gather current sources.`,
+              `2. Optionally call \`ai_summarize\` on the combined results with instruction="extract key claims and supporting evidence".`,
+              `3. Write a concise summary (3–5 paragraphs) that cites each source inline as [n], matching the numbered results.`,
+              `4. End with a "Sources" list mapping [n] to the full URL.`,
+              '',
+              `Prefer recent, authoritative sources. Flag any claims that lack a citation.`,
+            ].join('\n'),
+          },
+        },
+      ],
+    }
+  }
+
+  if (name === 'competitive_comparison') {
+    const subjectA = (args?.subject_a as string) || ''
+    const subjectB = (args?.subject_b as string) || ''
+    const criteria = (args?.criteria as string) || 'features, pricing, strengths, and weaknesses'
+    return {
+      description: `Competitive comparison: ${subjectA} vs ${subjectB}`,
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: [
+              `Compare "${subjectA}" and "${subjectB}" on: ${criteria}.`,
+              '',
+              `Steps:`,
+              `1. Call \`web_search\` with query="${subjectA} ${criteria}" and count=5.`,
+              `2. Call \`web_search\` with query="${subjectB} ${criteria}" and count=5.`,
+              `3. Optionally call \`ai_summarize\` on the combined results with instruction="compare and contrast".`,
+              `4. Produce a markdown table with one row per criterion and one column per subject, followed by a short "Verdict" paragraph.`,
+              `5. Cite sources inline as [n] and list them at the end.`,
+            ].join('\n'),
+          },
+        },
+      ],
+    }
+  }
+
+  if (name === 'news_roundup') {
+    const topic = (args?.topic as string) || ''
+    const count = (args?.count as string) || '10'
+    return {
+      description: `News roundup on "${topic}"`,
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: [
+              `Produce a news roundup on "${topic}" covering the past week.`,
+              '',
+              `Steps:`,
+              `1. Call \`news_search\` with query="${topic}", count=${count}, and freshness="pw".`,
+              `2. Group the articles into 2–4 themes and summarise each theme in 2–3 sentences.`,
+              `3. For each article, include the title, source, publication date, and URL.`,
+              `4. Note any conflicting reporting or gaps in coverage.`,
+            ].join('\n'),
+          },
+        },
+      ],
+    }
+  }
+
+  throw new Error(`Unknown prompt: ${name}`)
+})
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params
