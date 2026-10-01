@@ -1,22 +1,27 @@
 {
   "name": "stellar-search",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
-    "setup": "bash scripts/setup.sh",
-    "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview",
-    "server": "tsx server/index.ts",
-    "mcp": "tsx mcp-server/index.ts",
+    "deploy": "npm run build && vercel --prod",
+    "dev": "vite",
     "dev:all": "concurrently \"npm run server\" \"npm run dev\"",
-    "test:search": "tsx scripts/test-search.ts",
-    "test:suggestions": "tsx scripts/test-search.ts \"Stellar blockchain\" --count 3",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
-    "deploy": "npm run build && vercel --prod",
-    "prepare": "husky"
+    "load-test": "node scripts/load-test.js",
+    "mcp": "tsx mcp-server/index.ts",
+    "prepare": "husky",
+    "preview": "vite preview",
+    "server": "tsx server/index.ts",
+    "setup": "bash scripts/setup.sh",
+    "test:parity": "tsx tests/parity.test.ts",
+    "test:search": "tsx scripts/test-search.ts",
+    "test:suggestions": "tsx scripts/test-search.ts \"Stellar blockchain\" --count 3",
+    "test:url": "node --import tsx --test server/urlSummary.test.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
@@ -29,6 +34,7 @@
     "@x402/stellar": "^2.9.0",
     "buffer": "^6.0.3",
     "clsx": "^2.1.0",
+    "compression": "^1.8.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.0",
     "express": "^4.18.2",
@@ -43,6 +49,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
+    "@types/compression": "^1.8.1",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/node": "^20.11.0",
@@ -58,12 +65,14 @@
     "globals": "^17.12.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
+    "msw": "^2.15.0",
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3",
     "typescript-eslint": "^8.71.0",
-    "vite": "^5.1.0"
+    "vite": "^5.1.0",
+    "vitest": "^2.1.9"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
@@ -72,4 +81,3 @@
     ]
   }
 }
-

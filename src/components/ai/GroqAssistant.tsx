@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Bot, Send, X } from 'lucide-react'
+import { m, AnimatePresence, LazyMotion, domAnimation } from 'framer-motion'
+import Bot from 'lucide-react/dist/esm/icons/bot'
+import Send from 'lucide-react/dist/esm/icons/send'
+import X from 'lucide-react/dist/esm/icons/x'
 import { Tooltip } from '../ui/Tooltip'
 import type { SearchResult } from '../../hooks/useSearch'
 
@@ -177,10 +179,10 @@ export function GroqAssistant({ lastSearch }: Props = {}) {
   }
 
   return (
-    <>
+    <LazyMotion features={domAnimation} strict>
       {/* Floating button */}
-      <Tooltip label="Ask the AI assistant" side="left">
-        <motion.button
+<Tooltip label="Ask the AI assistant" side="left">
+        <m.button
           onClick={() => setOpen(true)}
           aria-label="Open AI assistant"
           aria-haspopup="dialog"
@@ -199,13 +201,13 @@ export function GroqAssistant({ lastSearch }: Props = {}) {
           transition={{ duration: 2, repeat: Infinity }}
         >
           <Bot className="w-5 h-5 text-neon-cyan" aria-hidden="true" />
-        </motion.button>
+        </m.button>
       </Tooltip>
 
       {/* Chat panel */}
       <AnimatePresence>
         {open && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
@@ -245,7 +247,7 @@ export function GroqAssistant({ lastSearch }: Props = {}) {
               aria-busy={loading}
             >
               {messages.filter(m => m.role !== 'system').map((msg, i) => (
-                <motion.div
+                <m.div
                   key={i}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -265,14 +267,14 @@ export function GroqAssistant({ lastSearch }: Props = {}) {
                   >
                     {msg.content}
                   </div>
-                </motion.div>
+                </m.div>
               ))}
 
               {loading && (
                 <div className="flex justify-start">
                   <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/7">
                     {[0, 1, 2].map(j => (
-                      <motion.div
+                      <m.div
                         key={j}
                         className="w-1.5 h-1.5 rounded-full bg-neon-cyan/60"
                         animate={{ opacity: [0.3, 1, 0.3] }}
@@ -315,9 +317,9 @@ export function GroqAssistant({ lastSearch }: Props = {}) {
                 </Tooltip>
               </div>
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
-    </>
+    </LazyMotion>
   )
 }
